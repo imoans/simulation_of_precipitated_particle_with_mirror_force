@@ -28,9 +28,9 @@ program main
     use ReadFileModule
 
     integer,parameter :: initVelNum = 10
-    double precision initVels(initVelNum)
+    double precision initVels(initVelNum), initV
 
-    initVels = readFile('init_vel.tsv', 10)
+    initVels = readFile('init_vel.tsv', initVelNum)
 
     print *, initVels
 

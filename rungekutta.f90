@@ -26,8 +26,8 @@ module CyclotronWithRungeKutta
         ! @subroutine run
         ! @public
         !!!
-        function run(init_vel)
-            double precision init_vel, run(3)
+        subroutine run(init_vel)
+            double precision init_vel
 
             ! t: 時間
             double precision :: t = 0
@@ -42,7 +42,7 @@ module CyclotronWithRungeKutta
             v(3) = 0
 
             do i = 1, 10000
-                run = r
+                write(*,*) r(1), r(2)
                 v = v + rungekutta(v, t, acceleration)
                 r = r + v * h
             end do
@@ -130,23 +130,6 @@ end
 
 program main
     use CyclotronWithRungeKutta
-    use ReadFileModule
-
-    integer,parameter :: initVelNum = 10
-    double precision initVels(initVelNum), r(3)
-    character filenames(initVelNum)*3, num*1, extension*2
-    extension = '.d'
-
-    initVels = readFile('init_vel.tsv', initVelNum)
-
-    do i = 1, initVelNum
-        write (num, '(i1.0)') i
-        filenames(i) = num // extension
-        open(18, file=filenames(i), status='replace')
-            r = run(initVels(i))
-            write(*, *)r(1), r(2)
-        close(18)
-        print *, r(1), r(2)
-    end do
+    call run(1.7d-2)
 
 end
