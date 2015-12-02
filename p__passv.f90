@@ -4,6 +4,7 @@ module p__passv
   use c__eprm,  only: lxa1,npa1
   use v__in,    only: delt,q
   use p__initmg,only: delx
+  use CyclotronWithRungeKutta
   implicit none
 !
   private
@@ -37,7 +38,7 @@ module p__passv
 !-----------------------------------------------------------------------
     do ii=1,npa1
 !-----------------------------------------------------------------------
-!      if(pind(ii).eq.0) then
+!      if(pind(ii).eq.0) then  ! 計算領域に粒子が存在するかの判定
 !-----------------------------------------------------------------------
         aa = xx(ii) / delx
         raa1 = dint( aa+half )
@@ -103,6 +104,14 @@ module p__passv
         vp1(3,ii) = pm1(3,ii)/lor(ii)/q(2,1)
 !-----------------------------------------------------------------------
 !      end if
+
+!-----------------------------------------------------------------------
+! rungekutta
+        !call run(1.7d-2)
+
+        !vp1(1, ii) = v + rungekutta(v, tbx, acceleration(v, t, fex, fbx))
+        !vp1(2, ii) = v + rungekutta(v, tby, acceleration(v, t, fey, fby))
+        !vp1(2, ii) = v + rungekutta(v, tbz, acceleration(v, t, fez, fbz))
 !-----------------------------------------------------------------------
     end do
 !-----------------------------------------------------------------------

@@ -1,1 +1,6 @@
-/a.out
+a.out
+*.o
+*.mod
+*.d
+*.[0-9][0-9]
+run.exe
