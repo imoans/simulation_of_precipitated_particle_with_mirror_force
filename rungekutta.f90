@@ -53,11 +53,12 @@ module CyclotronWithRungeKutta
         ! 加速度
         ! @function acceleration
         !!!
-        function acceleration(v, time)
+        function acceleration(v, time, dr)
             double precision acceleration(3)
             double precision time
             double precision v(3)
-            acceleration = q / m * cross(v, B)
+            double precision dr
+            acceleration = q / m * (E + cross(v, B(r + dr)))
         end
 
 
@@ -84,18 +85,20 @@ module CyclotronWithRungeKutta
             double precision time
 
             ! 一次導関数微分方程式の右辺
+            ! 第３引数にはΔ vecΔ h (deltaVecTime) をいれる
             interface
-                function f(vec3, time)
+                function f(vec3, time, deltaVecTime)
                     double precision f(3)
                     double precision vec3(3)
+                    double precision deltaVecTime(3)
                     double precision time
                 end
             end interface
 
-            k1 = h * f(vec3, time)
-            k2 = h * f(vec3 + k1 / 2, time + h / 2)
-            k3 = h * f(vec3 + k2 / 2, time + h / 2)
-            k4 = h * f(vec3 + k3, time + h)
+            k1 = h * f(vec3, time, 0)
+            k2 = h * f(vec3 + k1 / 2, time + h / 2, k1 * h / 4)
+            k3 = h * f(vec3 + k2 / 2, time + h / 2, k2 * h / 4)
+            k4 = h * f(vec3 + k3, time + h, k3 * h)
 
             rungekutta = (k1 + 2 * k2 + 2 * k3 + k4) / 6
         end
