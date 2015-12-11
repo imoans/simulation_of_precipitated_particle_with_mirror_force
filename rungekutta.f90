@@ -14,14 +14,16 @@ module CyclotronWithRungeKutta
     ! m: 質量
     double precision, parameter :: m = 1.0d0
 
+
     contains
+
 
         !!!*
         ! ルンゲクッタ法を繰り返し、各ステップにおける位置を計算
         !
         ! @subroutine run
         ! @public
-        ! @param {double} init_vel yの初速
+        ! @param {double} init_vel x,y方向の初速
         !!!
         subroutine run(init_vel)
             double precision init_vel
@@ -34,6 +36,8 @@ module CyclotronWithRungeKutta
 
             ! v: 速度
             double precision v(3)
+
+
 
             v(1) = init_vel
             v(2) = init_vel
@@ -55,13 +59,8 @@ module CyclotronWithRungeKutta
 
             double precision B(3), r(3)
             double precision x100, Bx
-            integer i, j, k
-            integer, dimension(1024) :: BArr = 1
-            !integer, dimension(1024) :: BArr
-
-            !do k = 1, 1024
-            !    BArr(k) = 1025 - k
-            !end do
+            integer i, j
+            integer, dimension(1024) :: BArr = (/ (i**2,i=1,1024) /)
 
             x100 = r(1) * 100 + 1 ! 粒子のx座標の100倍 (BArrの単位に合わせるため. 1を足すことで配列に対応)
             i    = int(x100) ! 粒子のいるBArrの左端
@@ -91,6 +90,46 @@ module CyclotronWithRungeKutta
         end
 
 
+        !!!*
+        ! ある座標における電場を取得
+        ! @function E
+        !!!
+        function E(r)
+
+            double precision E(3), r(3)
+            double precision x100, Ez
+            integer i, j
+            integer, dimension(1024) :: EArr = 1
+
+            x100 = r(3) * 100 + 1 ! 粒子のx座標の100倍 (BArrの単位に合わせるため. 1を足すことで配列に対応)
+            i    = int(x100) ! 粒子のいるEArrの左端
+            j    = i + 1     ! 粒子のいるEArrの右端
+
+            ! 粒子が磁場の右側の範囲外にいるとき
+            if (i > 1024) then
+                Ez = 0d0
+
+            ! 粒子が磁場の左側の範囲外にいるとき
+            elseif (i < 1) then
+                Ez = EArr(1)
+
+            ! 粒子のいるEArrの右端が未定義のときはそれを0とみなす
+            elseif (i == 1024) then
+                Ez = (j - x100) * EArr(i)
+
+            else
+                Ez = (j - x100) * EArr(i) + (x100 - i) * EArr(j)
+
+            endif
+
+            E(1) = 0d0
+            E(2) = 0d0
+            E(3) = Ez
+
+        end
+
+
+
 
         !!!*
         ! 加速度
@@ -100,7 +139,7 @@ module CyclotronWithRungeKutta
             double precision acceleration(3), v(3), dr(3)
             double precision time
 
-            acceleration = q / m * ( E + cross( v, B(r + dr) ) )
+            acceleration = q / m * ( E(r + dr) + cross( v, B(r + dr) ) )
         end
 
 
