@@ -4,7 +4,6 @@ module p__passv
   use c__eprm,  only: lxa1,npa1
   use v__in,    only: delt,q
   use p__initmg,only: delx
-  use CyclotronWithRungeKutta
   implicit none
 !
   private
@@ -30,8 +29,11 @@ module p__passv
 !-----------------------------------------------------------------------
 !-----------------------------------------------------------------------
     half  = 0.5d0
+    ! 質量
     fact1 = q(2,1)
+    ! 電荷
     fact2 = q(2,2)
+    ! q / m
     fact3 = fact2/fact1
     hdelt = delt*half
     cnst = fact3*hdelt
@@ -40,31 +42,38 @@ module p__passv
 !-----------------------------------------------------------------------
 !      if(pind(ii).eq.0) then  ! 計算領域に粒子が存在するかの判定
 !-----------------------------------------------------------------------
+! xx(ii): 位置
         aa = xx(ii) / delx
         raa1 = dint( aa+half )
         ic = raa1
         dd1 = aa+half-raa1
         dd2 = raa1-aa+half
 !-----------------------------------------------------------------------
+! 電場
         fex = ef(1,ic)*dd1 + ef(1,ic-1)*dd2
         fey = ef(2,ic)*dd1 + ef(2,ic-1)*dd2
         fez = ef(3,ic)*dd1 + ef(3,ic-1)*dd2
 !-----------------------------------------------------------------------
+! 磁場
         fbx = bf(1,ic)*dd1 + bf(1,ic-1)*dd2
         fby = bf(2,ic)*dd1 + bf(2,ic-1)*dd2
         fbz = bf(3,ic)*dd1 + bf(3,ic-1)*dd2
         fpbr = pbr(ic)*dd1 + pbr(ic-1)*dd2
 !-----------------------------------------------------------------------
+! 運動量
         pax = pm1(1,ii) + fex*cnst
         pay = pm1(2,ii) + fey*cnst
         paz = pm1(3,ii) + fez*cnst
 !-----------------------------------------------------------------------
+! ローレンツファクター
         lort = 1.d0 + pax**2 + pay**2 + paz**2
         lort = sqrt(lort)
 !-----------------------------------------------------------------------
+! 仮で求める速度
         vay = pay/lort/q(2,1)
         vaz = paz/lort/q(2,1)
 !-----------------------------------------------------------------------
+! ラーマー半径
         rlar = sqrt( vay**2 + vaz**2 )
         rlar = rlar/fbx*lort
 !-----------------------------------------------------------------------
@@ -77,6 +86,7 @@ module p__passv
         tpby =  tpbr*paz/pperp
         tpbz = -tpbr*pay/pperp
 !-----------------------------------------------------------------------
+! 磁場は動径方向の磁場も考慮して計算
         p0x = pax + cnst*( pay*tbz - paz*tby - pperp*tpbr )
         p0y = pay + cnst*( paz*tbx - pax*tbz - pax*tpbz )
         p0z = paz + cnst*( pax*tby - pay*tbx + pax*tpby )
@@ -105,13 +115,6 @@ module p__passv
 !-----------------------------------------------------------------------
 !      end if
 
-!-----------------------------------------------------------------------
-! rungekutta
-        !call run(1.7d-2)
-
-        !vp1(1, ii) = v + rungekutta(v, tbx, acceleration(v, t, fex, fbx))
-        !vp1(2, ii) = v + rungekutta(v, tby, acceleration(v, t, fey, fby))
-        !vp1(2, ii) = v + rungekutta(v, tbz, acceleration(v, t, fez, fbz))
 !-----------------------------------------------------------------------
     end do
 !-----------------------------------------------------------------------
