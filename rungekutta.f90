@@ -4,17 +4,22 @@
 !!!
 module CyclotronWithRungeKutta
 
-    use mtmod
+    ! spaceRange: グリッドの範囲
+    integer, parameter :: spaceRange = 1024
 
-    ! h: 刻み幅
+    ! h: 時間の刻み幅
     double precision, parameter :: h = 1.0d-3
+
+    ! initial_r: 初期位置
+    double precision :: initial_r(3) = (/5.12d0, 0d0, 0d0/) ! 磁場の配列の長さの中央の値
+    ! TODO: 配列の長さが可変になった時、xの値も調節する
 
     type Particle
         ! r: 位置, v: 速度
         double precision :: r(3), v(3)
 
         ! q: 電荷
-        double precision :: q = 1.0d0
+        double precision :: q = -1.0d0
 
         ! m: 質量
         double precision :: m = 1.0d0
@@ -41,10 +46,16 @@ module CyclotronWithRungeKutta
 
             type(Particle) electron
 
-            electron = createParticle((/5.12d0, 0d0, 0d0/), (/1.7d-2, 1.7d-2, 0d0/))
+            double precision initial_v(3)
 
-            do i = 1, 10000
+            initial_v = createVectorByRandom(1.7d-2)
+
+            electron = createParticle(initial_r, initial_v)
+
+            do i = 1, 100
+                t = t + h
                 call update(electron, t)
+                write(*,*) electron%r
             end do
         end
 
@@ -58,11 +69,14 @@ module CyclotronWithRungeKutta
         subroutine update(pt, time)
 
             type(Particle) pt
-            double precision time
+            double precision time, v(3), r(3), runge(3)
 
-            pt%v = pt%v + rungekuttaParticle(pt, time, acceleration)
-            pt%r = pt%r + pt%v * h
+            runge = rungekuttaParticle(pt, time, acceleration)
 
+            v = pt%v + runge
+            r = pt%r + v * h
+
+            pt = Particle(r, v)
         end
 
 
@@ -77,8 +91,8 @@ module CyclotronWithRungeKutta
             type(Particle) createParticle
             double precision r(3), v(3)
 
-            createParticle%r = r
-            createParticle%v = v
+            createParticle = Particle(r, v)
+
         end
 
 
@@ -91,9 +105,8 @@ module CyclotronWithRungeKutta
             double precision createVectorByRandom(3)
             double precision absLen, angle, pi, randomNum
 
-            call sgrnd(4357) ! 乱数生成開始
+            call random_number(randomNum) ! 乱数生成開始
 
-            randomNum = grnd()
             pi = atan(1.0) * 4.0
             angle = randomNum * 2 * pi
 
@@ -132,7 +145,7 @@ module CyclotronWithRungeKutta
         function radialB(r)
 
             double precision radialB, r(3)
-            integer, dimension(1024) :: radialBArr = 1.0d0
+            integer, dimension(spaceRange) :: radialBArr = (/ ((1025-i),i=1,1024) /)
 
             radialB = getLinearly(radialBArr, r(1) * 100)
 
@@ -148,11 +161,12 @@ module CyclotronWithRungeKutta
         function B(r)
 
             double precision B(3), r(3)
-            integer, dimension(1024) :: BArr = (/ (i**2,i=1,1024) /)
+            integer, dimension(spaceRange) :: BArr = (/ ((1025-i),i=1,1024) /)
 
             B(1) = getLinearly(BArr, r(1) * 100)
             B(2) = 0d0
             B(3) = 0d0
+
         end
 
 
@@ -165,7 +179,7 @@ module CyclotronWithRungeKutta
         function E(r)
 
             double precision E(3), r(3)
-            integer, dimension(1024) :: EArr = 0
+            integer, dimension(spaceRange) :: EArr = 0
 
             E(1) = 0d0
             E(2) = 0d0
@@ -186,37 +200,34 @@ module CyclotronWithRungeKutta
         function acceleration(pt, time)
 
             type(Particle) pt
-            double precision acceleration(3), correctedB(3)
-            double precision time
+            double precision acceleration(3), time, accel(3)
 
-            correctedB = B(pt%r) + correctB(pt)
-
-            acceleration = pt%q / pt%m * ( E(pt%r) + cross( pt%v, correctedB ) )
-        end
+            acceleration = pt%q / pt%m * ( E(pt%r) + cross( pt%v, B(pt%r) ) + correctLortForce(pt))
+        end function acceleration
 
 
 
         !!!*
-        ! 動径方向の磁場を考慮した磁場の補正分を計算
-        ! @function correctB
+        ! 動径方向の磁場を考慮したローレンツ力の補正分を計算
+        ! @function correctLortForce
         ! @param {Particle} pt 粒子
-        ! @return {double(3)} 磁場の補正分の大きさ
+        ! @return {double(3)} 補正分の大きさ
         !!!
-        function correctB(pt)
+        function correctLortForce(pt)
             type(Particle) pt
-            double precision correctB(3), v_perp
+            double precision correctLortForce(3), v_perp
             double precision currentBry, currentBrz, currentBr
             integer :: lort = 1 ! ローレンツファクター
 
             v_perp = sqrt( pt%v(2)**2 + pt%v(3)**2 )
 
             currentBry = radialB(pt%r) * pt%v(3) / v_perp
-            currentBrz = radialB(pt%r) * pt%v(2) / v_perp
+            currentBrz = - radialB(pt%r) * pt%v(2) / v_perp
             currentBr  = radialB(pt%r) * larmorRadius(pt) / lort
 
-            correctB(1) = - v_perp  * currentBr
-            correctB(2) = - pt%v(1) * currentBry
-            correctB(3) =   pt%v(1) * currentBrz
+            correctLortForce(1) = - v_perp  * currentBr
+            correctLortForce(2) = - pt%v(1) * currentBrz
+            correctLortForce(3) =   pt%v(1) * currentBry
 
         end
 
@@ -252,14 +263,14 @@ module CyclotronWithRungeKutta
 
             double precision getLinearly, val
             integer left, right
-            integer, dimension(1024) :: arr
+            integer, dimension(spaceRange) :: arr
 
             val   = val + 1   ! インデックスを 1スタートに変更
             left  = int(val)  ! 左端
             right = left + 1  ! 右端
 
             ! 値が配列の右端より右にあるときは0を返す
-            if (right > 1024) then
+            if (right > spaceRange) then
                 getLinearly = 0d0
 
             ! 値が配列の左端より左にあるときはarr(1)を返す
@@ -267,7 +278,7 @@ module CyclotronWithRungeKutta
                 getLinearly = arr(1)
 
             ! valを挟む整数の右端が未定義のときはそれを0とみなす
-            elseif (left == 1024) then
+            elseif (left == spaceRange) then
                 getLinearly = (right - val) * arr(left)
 
             else
@@ -290,8 +301,8 @@ module CyclotronWithRungeKutta
         !!!
         function rungekuttaParticle(pt, time, accel)
             type(Particle) pt, p1, p2, p3
-            double precision rungekuttaParticle(3), time
-            double precision k1(3), k2(3), k3(3), k4(3)
+            double precision time
+            double precision rungekuttaParticle(3), k1(3), k2(3), k3(3), k4(3)
             double precision d2(3), d3(3), d4(3) ! d2〜d4 微小時間で移動した距離
 
             ! 一次導関数微分方程式の右辺
@@ -318,7 +329,9 @@ module CyclotronWithRungeKutta
             d4 = (pt%v + pt%v + k3 * h) * h / 2 ! 台形
             k4 = accel(p3, time + h)
 
-            rungekuttaParticle = h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+           rungekuttaParticle = h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+
+           return
         end
     !end contains
 end
@@ -326,6 +339,7 @@ end
 
 program main
     use CyclotronWithRungeKutta
+
     call run
 
 end
