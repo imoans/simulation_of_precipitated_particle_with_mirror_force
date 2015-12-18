@@ -80,6 +80,26 @@ module CyclotronWithRungeKutta
         end
 
 
+
+        !!!*
+        ! 与えられた数だけ粒子を生成する
+        ! @function createManyParticles
+        ! @param {integer} num 粒子の数
+        ! @return {Particle(num)} 粒子を要素に持つ配列
+        !!!
+        function createManyParticles(num)
+            integer num
+            type(Particle) createManyParticles(num)
+            double precision initial_v(3)
+
+            do i = 1, num
+                initial_v = createVectorByRandom(1.7d-2)
+                createManyParticles(i) = createParticle(initial_r, initial_v)
+            end do
+
+        end
+
+
         !!!*
         ! 与えられた位置と速度から粒子を生成
         ! @function createParticle
