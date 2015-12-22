@@ -10,13 +10,22 @@ module CyclotronWithRungeKutta
     ! h: 時間の刻み幅
     double precision, parameter :: h = 1.0d-3
 
-    ! initial_r: 初期位置
-    double precision :: initial_r(3) = (/5.12d0, 0d0, 0d0/) ! 磁場の配列の長さの中央の値
+    ! initial_r: 粒子の初期位置
+    double precision, parameter :: initial_r(3) = (/5.12d0, 0d0, 0d0/) ! 磁場の配列の長さの中央の値
     ! TODO: 配列の長さが可変になった時、xの値も調節する
+
+    ! V_LEN: 粒子の速度の絶対値
+    double precision, parameter :: V_LEN = 1.7d-2
 
     type Particle
         ! r: 位置, v: 速度
         double precision :: r(3), v(3)
+
+        ! 初期位置でのピッチ角 [°]
+        double precision :: initialPA
+
+        ! Mirror Forceを無視する
+        logical:: ignoreMF = .true.
 
         ! q: 電荷
         double precision :: q = -1.0d0
@@ -25,7 +34,6 @@ module CyclotronWithRungeKutta
         double precision :: m = 1.0d0
 
     end type Particle
-
 
 
     contains
@@ -46,16 +54,21 @@ module CyclotronWithRungeKutta
 
             type(Particle) electron
 
-            double precision initial_v(3)
+            electron = createInitialParticleByRandom()
 
-            initial_v = createVectorByRandom(1.7d-2)
+            do i = 1, 1000
 
-            electron = createParticle(initial_r, initial_v)
+                !write(*,*) i, electron%r(1)
+                !write(*,*) electron%v(1)
+                write(*,*) i, pitchAngle(electron)
 
-            do i = 1, 100
+                if (collisionOccurred(electron, h)) then
+                    exit
+                endif
+
                 t = t + h
                 call update(electron, t)
-                write(*,*) electron%r
+
             end do
         end
 
@@ -73,10 +86,9 @@ module CyclotronWithRungeKutta
 
             runge = rungekuttaParticle(pt, time, acceleration)
 
-            v = pt%v + runge
-            r = pt%r + v * h
+            pt%v = pt%v + runge
+            pt%r = pt%r + pt%v * h
 
-            pt = Particle(r, v)
         end
 
 
@@ -90,50 +102,92 @@ module CyclotronWithRungeKutta
         function createManyParticles(num)
             integer num
             type(Particle) createManyParticles(num)
-            double precision initial_v(3)
 
             do i = 1, num
-                initial_v = createVectorByRandom(1.7d-2)
-                createManyParticles(i) = createParticle(initial_r, initial_v)
+                createManyParticles(i) = createInitialParticleByRandom()
             end do
 
         end
 
 
         !!!*
-        ! 与えられた位置と速度から粒子を生成
-        ! @function createParticle
-        ! @param {double(3)} 粒子の位置
-        ! @param {double(3)} 粒子の速度
-        ! @return {Particle} 粒子
+        ! 中性大気との衝突が起きたかどうか、高度(x)に応じてランダムに結果を生成
+        ! @function collisionOccurred
+        ! @param {Particle} pt 粒子
+        ! @param {double} dt 時間の微小変化
+        ! @return {logical} 中性大気との衝突したかどうか
         !!!
-        function createParticle(r, v)
-            type(Particle) createParticle
-            double precision r(3), v(3)
+        function collisionOccurred(pt, dt)
+            type(Particle) pt
+            double precision randomNum, dt
+            logical collisionOccurred
 
-            createParticle = Particle(r, v)
+            call random_number(randomNum)
+            collisionOccurred = (randomNum < collisionProbabilityByX(pt%r(1), dt))
 
         end
 
 
         !!!*
-        ! 与えられた長さと角度からベクトルをランダムに生成する
-        ! @function createVectorByRandom
-        ! @param {double} absLen 長さ
+        ! 与えられたx座標における中性大気との衝突確率
+        ! x > 0を想定
+        ! @function collisionProbabilityByX
+        ! @param {double} x
+        ! @param {double} dt 時間の微小変化
+        ! @return {double} 確率
         !!!
-        function createVectorByRandom(absLen)
-            double precision createVectorByRandom(3)
-            double precision absLen, angle, pi, randomNum
+        function collisionProbabilityByX(x, dt)
+            double precision x, dt, collisionProbabilityByX
+            double precision, parameter:: e = 2.71828182845904524d0 ! 自然対数の底
+
+            collisionProbabilityByX = e**(-x * 10000 * dt)
+
+        end
+
+
+        !!!*
+        ! 初期位置、初期速度粒子の初速をランダムに取得
+        ! ピッチ角(0°~90°)をランダムな一様分布として与える
+        ! @function createInitialParticleByRandom
+        ! @return {Particle} 粒子
+        !!!
+        function createInitialParticleByRandom()
+            type(Particle) createInitialParticleByRandom
+
+            double precision initialPA, initialBx, angle, pi, randomNum, initialVel(3)
+
+            pi = atan(1.0) * 4.0
 
             call random_number(randomNum) ! 乱数生成開始
 
-            pi = atan(1.0) * 4.0
-            angle = randomNum * 2 * pi
+            initialPA = randomNum * 90 ! 初期位置でのPitch Angle
 
-            createVectorByRandom(1) = cos(angle) * absLen
-            createVectorByRandom(2) = sin(angle) * absLen
-            createVectorByRandom(3) = 0d0
+            initialVel(1) = - cos(initialPA * pi / 180) * V_LEN
+            initialVel(2) = sin(initialPA * pi / 180) * V_LEN
+            initialVel(3) = 0d0
+
+            createInitialParticleByRandom = Particle(initial_r, initialVel, initialPA)
+
+
         end
+
+
+        !!!*
+        ! 粒子のピッチ角を求める
+        ! @function pitchAngle
+        ! @param {Particle} pt
+        ! @return {double} ピッチ角 [°]
+        !!!
+        function pitchAngle(pt)
+            type(Particle) pt
+            double precision absVelocity, pitchAngle, pi
+
+            pi = atan(1.0) * 4.0
+            absVelocity = sqrt( pt%v(1)**2 + pt%v(2)**2 + pt%v(3)**2 )
+            pitchAngle = 180 - acos(pt%v(1) / absVelocity) * 180 / pi
+
+        end
+
 
 
         !!!*
@@ -165,7 +219,7 @@ module CyclotronWithRungeKutta
         function radialB(r)
 
             double precision radialB, r(3)
-            integer, dimension(spaceRange) :: radialBArr = (/ ((1025-i),i=1,1024) /)
+            integer, dimension(spaceRange) :: radialBArr = (/ (0.5d0*(spaceRange+1-i),i=1,spaceRange) /)
 
             radialB = getLinearly(radialBArr, r(1) * 100)
 
@@ -181,7 +235,7 @@ module CyclotronWithRungeKutta
         function B(r)
 
             double precision B(3), r(3)
-            integer, dimension(spaceRange) :: BArr = (/ ((1025-i),i=1,1024) /)
+            integer, dimension(spaceRange) :: BArr = (/ ((spaceRange+1-i),i=1,spaceRange) /)
 
             B(1) = getLinearly(BArr, r(1) * 100)
             B(2) = 0d0
@@ -220,9 +274,15 @@ module CyclotronWithRungeKutta
         function acceleration(pt, time)
 
             type(Particle) pt
-            double precision acceleration(3), time, accel(3)
+            double precision acceleration(3), time, accel(3), mf(3)
 
-            acceleration = pt%q / pt%m * ( E(pt%r) + cross( pt%v, B(pt%r) ) + correctLortForce(pt))
+            if (pt%ignoreMF) then
+                mf = (/0d0, 0d0, 0d0/) ! 磁場の配列の長さの中央の値
+            else
+                mf = correctLortForce(pt)
+            endif
+
+            acceleration = pt%q / pt%m * ( E(pt%r) + cross( pt%v, B(pt%r) ) + mf)
         end function acceleration
 
 
@@ -336,15 +396,15 @@ module CyclotronWithRungeKutta
             end interface
 
             k1 = accel(pt, time)
-            p1 = createParticle(pt%r, pt%v + k1 * h / 2)
+            p1 = Particle(pt%r, pt%v + k1 * h / 2, pt%initialPA, pt%ignoreMF)
 
             d2 = (pt%v + pt%v + k1 * h / 2) * h / 2 / 2 ! 台形
             k2 = accel(p1, time + h / 2)
-            p2 = createParticle(p1%r + d2, p1%v + k2 * h / 2)
+            p2 = Particle(p1%r + d2, p1%v + k2 * h / 2, pt%initialPA, pt%ignoreMF)
 
             d3 = (pt%v + pt%v + k2 * h / 2) * h / 2 / 2 ! 台形
             k3 = accel(p2, time + h / 2)
-            p3 = createParticle(p2%r + d3, p2%v + k3 * h)
+            p3 = Particle(p2%r + d3, p2%v + k3 * h, pt%initialPA, pt%ignoreMF)
 
             d4 = (pt%v + pt%v + k3 * h) * h / 2 ! 台形
             k4 = accel(p3, time + h)
