@@ -53,14 +53,16 @@ module CyclotronWithRungeKutta
             integer i
 
             type(Particle) electron
+            double precision energy
 
             electron = createInitialParticleByRandom()
 
             do i = 1, 1000
 
                 !write(*,*) i, electron%r(1)
-                !write(*,*) electron%v(1)
-                write(*,*) i, pitchAngle(electron)
+                !write(*,*) electron%v
+                !write(*,*) i, pitchAngle(electron)
+                write(*,*) t, kineticEnergy(electron)
 
                 if (collisionOccurred(electron, h)) then
                     exit
@@ -68,6 +70,7 @@ module CyclotronWithRungeKutta
 
                 t = t + h
                 call update(electron, t)
+                energy = kineticEnergy(electron)
 
             end do
         end
@@ -92,6 +95,19 @@ module CyclotronWithRungeKutta
         end
 
 
+        !!!*
+        ! 粒子の速度から運動エネルギーを計算
+        ! @function kineticEnergy
+        ! @param {double(3)} 速度
+        ! @return {double} 運動エネルギー
+        !!!
+        function kineticEnergy(pt)
+            double precision kineticEnergy, v_len
+            type(Particle) pt
+
+            v_len = sqrt(pt%v(1) ** 2 + pt%v(2) **2 + pt%v(3) **2)
+            kineticEnergy = 0.5d0 * pt%m * v_len ** 2
+        end
 
         !!!*
         ! 与えられた数だけ粒子を生成する
