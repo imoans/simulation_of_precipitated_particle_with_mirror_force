@@ -81,6 +81,7 @@ module p__passv
         tby = fby/lort
         tbz = fbz/lort
         tpbr = fpbr*rlar/lort
+        ! ↑ rlarをかけるのはなぜ?
 !-----------------------------------------------------------------------
         pperp = sqrt( pay**2 + paz**2 )
         tpby =  tpbr*paz/pperp

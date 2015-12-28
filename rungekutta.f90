@@ -1,39 +1,74 @@
 !!!*
 ! ルンゲクッタ法でサイクロトロン運動を求める
 ! @module CyclotronWithRungeKutta
+
+! xyz座標系について 原点： 地表の北極点 (地球の中心ではない！)
+! x: 赤道平面と平行な軸 [m]
+! y: (xとzに垂直な方向) [m]
+! z: 天頂方向 [m]
 !!!
 module CyclotronWithRungeKutta
+
+    ! 円周率
+    double precision, parameter:: pi = 3.14159265358979323d0
+
+    ! 自然対数の底
+    double precision, parameter:: e  = 2.71828182845904524d0
+
+    ! 光速 [m/s]
+    double precision, parameter:: c = 2.99792458d8
 
     ! spaceRange: グリッドの範囲
     integer, parameter :: spaceRange = 1024
 
-    ! h: 時間の刻み幅
-    double precision, parameter :: h = 1.0d-3
+    ! h: 時間の刻み幅 [s]
+    double precision, parameter :: h = 0.5d-2 * 7.15d-7 ! 電離圏でのサイクロトロン周期(仮)
 
     ! initial_r: 粒子の初期位置
-    double precision, parameter :: initial_r(3) = (/5.12d0, 0d0, 0d0/) ! 磁場の配列の長さの中央の値
-    ! TODO: 配列の長さが可変になった時、xの値も調節する
+    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 300d3/) ! 北極方向に地表から300km地点
 
-    ! V_LEN: 粒子の速度の絶対値
-    double precision, parameter :: V_LEN = 1.7d-2
+    ! earthRadius: 地球の半径 [m]
+    double precision, parameter :: earthRadius = 6371d3
 
+    ! V_LEN: 粒子の速度の絶対値 [m/s]
+    double precision, parameter :: V_LEN = 6.24d-2 * c
+
+    ! minZ: 最低高度 [m]
+    double precision, parameter :: minZ = 50d3
+
+    ! maxZ : 最高高度 [m]
+    double precision, parameter :: maxZ = 300d3
+
+    ! 粒子
     type Particle
-        ! r: 位置, v: 速度
+        ! r: 位置([m], [m], [m]), v: 速度 ([m/s], [m/s], [m/s])
         double precision :: r(3), v(3)
 
         ! 初期位置でのピッチ角 [°]
         double precision :: initialPA
 
-        ! Mirror Forceを無視する
+        ! Mirror Forceを無視するかどうか
         logical:: ignoreMF = .true.
 
-        ! q: 電荷
-        double precision :: q = -1.0d0
+        ! q: 電荷 [C]
+        double precision :: q = -1.602176d-19
 
-        ! m: 質量
-        double precision :: m = 1.0d0
+        ! m: 質量 [kg]
+        double precision :: m = 9.10938356d-31
 
     end type Particle
+
+
+    ! 球面座標
+    type Spherical
+
+        ! 地球の中心からの距離 [m]
+        double precision :: r
+
+        ! 赤道平面とのなす角 [rad]
+        double precision :: lambda
+
+    end type Spherical
 
 
     contains
@@ -47,30 +82,26 @@ module CyclotronWithRungeKutta
         !!!
         subroutine run
 
-            ! t: 時間
+            ! t: 時間 [s]
             double precision :: t = 0
 
             integer i
 
             type(Particle) electron
-            double precision energy
 
-            electron = createInitialParticleByRandom()
+            electron = createInitialParticle(45d0)
 
-            do i = 1, 1000
+            do i = 1, 10000
 
-                !write(*,*) i, electron%r(1)
+                !if (collisionOccurred(electron, h)) then
+                !    exit
+                !endif
+                !write(*,*) electron%r
+                write(*,*) i, vlen(electron%v)
                 !write(*,*) electron%v
-                !write(*,*) i, pitchAngle(electron)
-                write(*,*) t, kineticEnergy(electron)
-
-                if (collisionOccurred(electron, h)) then
-                    exit
-                endif
 
                 t = t + h
                 call update(electron, t)
-                energy = kineticEnergy(electron)
 
             end do
         end
@@ -98,16 +129,16 @@ module CyclotronWithRungeKutta
         !!!*
         ! 粒子の速度から運動エネルギーを計算
         ! @function kineticEnergy
-        ! @param {double(3)} 速度
+        ! @param {Particle} 粒子
         ! @return {double} 運動エネルギー
         !!!
         function kineticEnergy(pt)
             double precision kineticEnergy, v_len
             type(Particle) pt
 
-            v_len = sqrt(pt%v(1) ** 2 + pt%v(2) **2 + pt%v(3) **2)
-            kineticEnergy = 0.5d0 * pt%m * v_len ** 2
+            kineticEnergy = 0.5d0 * pt%m * vlen(pt%v) ** 2
         end
+
 
         !!!*
         ! 与えられた数だけ粒子を生成する
@@ -120,7 +151,7 @@ module CyclotronWithRungeKutta
             type(Particle) createManyParticles(num)
 
             do i = 1, num
-                createManyParticles(i) = createInitialParticleByRandom()
+                createManyParticles(i) = createInitialParticle(89d0)
             end do
 
         end
@@ -139,51 +170,42 @@ module CyclotronWithRungeKutta
             logical collisionOccurred
 
             call random_number(randomNum)
-            collisionOccurred = (randomNum < collisionProbabilityByX(pt%r(1), dt))
+            collisionOccurred = (randomNum < collisionProbabilityByZ(pt%r(3), dt))
 
         end
 
 
         !!!*
-        ! 与えられたx座標における中性大気との衝突確率
-        ! x > 0を想定
-        ! @function collisionProbabilityByX
-        ! @param {double} x
+        ! 与えられたz座標における中性大気との衝突確率
+        ! @function collisionProbabilityByZ
+        ! @param {double} z
         ! @param {double} dt 時間の微小変化
         ! @return {double} 確率
         !!!
-        function collisionProbabilityByX(x, dt)
-            double precision x, dt, collisionProbabilityByX
-            double precision, parameter:: e = 2.71828182845904524d0 ! 自然対数の底
+        function collisionProbabilityByZ(z, dt)
+            double precision z, dt, collisionProbabilityByZ
 
-            collisionProbabilityByX = e**(-x * 10000 * dt)
+            collisionProbabilityByZ = e**(-z * 10000 * dt)
 
         end
 
 
         !!!*
-        ! 初期位置、初期速度粒子の初速をランダムに取得
-        ! ピッチ角(0°~90°)をランダムな一様分布として与える
-        ! @function createInitialParticleByRandom
+        ! ピッチ角を与え、初期の粒子を得る
+        ! @function createInitialParticle
         ! @return {Particle} 粒子
         !!!
-        function createInitialParticleByRandom()
-            type(Particle) createInitialParticleByRandom
+        function createInitialParticle(angle)
+            type(Particle) createInitialParticle
 
-            double precision initialPA, initialBx, angle, pi, randomNum, initialVel(3)
+            double precision initialPA, initialBx, angle, initialVel(3)
 
-            pi = atan(1.0) * 4.0
 
-            call random_number(randomNum) ! 乱数生成開始
+            initialVel(1) = 0d0
+            initialVel(2) = sin(angle * pi / 180) * V_LEN
+            initialVel(3) = - cos(angle * pi / 180) * V_LEN
 
-            initialPA = randomNum * 90 ! 初期位置でのPitch Angle
-
-            initialVel(1) = - cos(initialPA * pi / 180) * V_LEN
-            initialVel(2) = sin(initialPA * pi / 180) * V_LEN
-            initialVel(3) = 0d0
-
-            createInitialParticleByRandom = Particle(initial_r, initialVel, initialPA)
-
+            createInitialParticle = Particle(initial_r, initialVel, initialPA)
 
         end
 
@@ -196,87 +218,67 @@ module CyclotronWithRungeKutta
         !!!
         function pitchAngle(pt)
             type(Particle) pt
-            double precision absVelocity, pitchAngle, pi
+            double precision absVelocity, pitchAngle
 
-            pi = atan(1.0) * 4.0
-            absVelocity = sqrt( pt%v(1)**2 + pt%v(2)**2 + pt%v(3)**2 )
-            pitchAngle = 180 - acos(pt%v(1) / absVelocity) * 180 / pi
+            absVelocity = vlen(pt%v)
+            pitchAngle = 180 - acos(pt%v(3) / absVelocity) * 180 / pi
 
         end
 
 
 
         !!!*
-        ! 与えられた粒子のラーマー半径を取得
-        ! @function larmorRadius
-        ! @param {Particle} particle 粒子
-        ! @return {double} ラーマー半径
-        !!!
-        function larmorRadius(pt)
-
-            type(Particle) pt
-            double precision larmorRadius, currentB(3)
-            integer :: lort = 1 ! ローレンツファクター
-
-            currentB = B(pt%r)
-
-            v_perp_len = sqrt( pt%v(2)**2 + pt%v(3)**2 )
-            larmorRadius = v_perp_len / currentB(1) * lort
-
-        end
-
-
-        !!!*
-        ! ある座標において粒子の作る動径方向の磁場の大きさを取得
-        ! @function radialB
-        ! @param {double(3)} r 粒子の位置
-        ! @return {double} 磁場の大きさ
-        !!
-        function radialB(r)
-
-            double precision radialB, r(3)
-            integer, dimension(spaceRange) :: radialBArr = (/ (0.5d0*(spaceRange+1-i),i=1,spaceRange) /)
-
-            radialB = getLinearly(radialBArr, r(1) * 100)
-
-        end
-
-
-        !!!*
-        ! ある座標における磁場を取得
+        ! ある座標におけるdipole磁場を、divB = 0 となるように補正したもの
         ! @function B
         ! @param {double(3)} r 粒子の位置
-        ! @return {double(3)} 磁場の大きさ
+        ! @return {double(3)} 磁場
         !!!
         function B(r)
 
-            double precision B(3), r(3)
-            integer, dimension(spaceRange) :: BArr = (/ ((spaceRange+1-i),i=1,spaceRange) /)
+            double precision B(3), r(3), Bxy, k, sinL, cosL, spR3, xyAngle
+            double precision, parameter :: permeability = 4d-7 * pi ! 真空での透磁率 [H/m]
+            double precision, parameter :: dipoleMoment = 8.05d22   ! Earth's dipole moment [m]
+            type(Spherical) sp
 
-            B(1) = getLinearly(BArr, r(1) * 100)
+            !sp = toSpherical(r) ! xyz座標を球面座標に変換
+
+            !sinL = sin(sp%lambda)
+            !cosL = cos(sp%lambda)
+            !spR3 = sp%r**3
+
+            !k = permeability * dipoleMoment / 4 / pi ! 係数
+
+            !B(3) = k * (-3*sinL**2 + 1) / spR3
+
+            !! divB = 0となるように調整された、平行な磁場ベクトルのxyに平行な成分
+            !Bxy = k * cosL * sinL * ( 9 - 6 * sinL**2) / (2 * spR3)
+
+            !xyAngle = atan2(r(2), r(1))
+
+            !B(1) = Bxy * cos(xyAngle)
+            !B(2) = Bxy * sin(xyAngle)
+            B(1) = 0d0
             B(2) = 0d0
-            B(3) = 0d0
+            B(3) = 50000d-9
 
         end
 
 
         !!!*
         ! ある座標における電場を取得
-        ! @function E
+        ! @function El
         ! @param {double(3)} r 粒子の位置
         ! @return {double(3)} 電場の大きさ
         !!!
-        function E(r)
+        function El(r)
 
-            double precision E(3), r(3)
-            integer, dimension(spaceRange) :: EArr = 0
+            double precision El(3), r(3)
 
-            E(1) = 0d0
-            E(2) = 0d0
-            E(3) = getLinearly(EArr, r(3) * 100)
+            El(1) = 0d0
+            El(2) = 0d0
+            El(3) = 0d0
 
         end
-
 
 
 
@@ -290,44 +292,39 @@ module CyclotronWithRungeKutta
         function acceleration(pt, time)
 
             type(Particle) pt
-            double precision acceleration(3), time, accel(3), mf(3)
+            double precision acceleration(3), time
 
-            if (pt%ignoreMF) then
-                mf = (/0d0, 0d0, 0d0/) ! 磁場の配列の長さの中央の値
-            else
-                mf = correctLortForce(pt)
-            endif
+            acceleration = pt%q / pt%m * ( El(pt%r) + cross( pt%v, B(pt%r) ))
 
-            acceleration = pt%q / pt%m * ( E(pt%r) + cross( pt%v, B(pt%r) ) + mf)
-        end function acceleration
+        end function
 
 
 
         !!!*
-        ! 動径方向の磁場を考慮したローレンツ力の補正分を計算
-        ! @function correctLortForce
+        ! 磁場の大きさ、粒子の質量、電荷からサイクロトロン周期を求める
+        ! @function period
         ! @param {Particle} pt 粒子
-        ! @return {double(3)} 補正分の大きさ
+        ! @return {double} サイクロトロン周期 [s]
         !!!
-        function correctLortForce(pt)
+        function cyclotronPeriod(pt)
             type(Particle) pt
-            double precision correctLortForce(3), v_perp
-            double precision currentBry, currentBrz, currentBr
-            integer :: lort = 1 ! ローレンツファクター
+            double precision cyclotronPeriod
 
-            v_perp = sqrt( pt%v(2)**2 + pt%v(3)**2 )
+            cyclotronPeriod = 2 * pi * pt%m / abs(pt%q) / vlen(B(pt%r))
 
-            currentBry = radialB(pt%r) * pt%v(3) / v_perp
-            currentBrz = - radialB(pt%r) * pt%v(2) / v_perp
-            currentBr  = radialB(pt%r) * larmorRadius(pt) / lort
-
-            correctLortForce(1) = - v_perp  * currentBr
-            correctLortForce(2) = - pt%v(1) * currentBrz
-            correctLortForce(3) =   pt%v(1) * currentBry
-
-        end
+        end function
 
 
+        !!!*
+        ! 与えられた3次元ベクトルの長さを取得
+        ! @function vlen
+        ! @param {double(3)} vec
+        ! @return {double} length
+        !!!
+        function vlen(vec)
+            double precision vlen, vec(3)
+            vlen = sqrt( vec(1)**2 + vec(2)**2 + vec(3)**2 )
+        end function
 
 
         !!!*
@@ -344,8 +341,6 @@ module CyclotronWithRungeKutta
             cross(2) = x(3) * y(1) - x(1) * y(3)
             cross(3) = x(1) * y(2) - x(2) * y(1)
         end
-
-
 
 
         !!!*
@@ -381,6 +376,35 @@ module CyclotronWithRungeKutta
                 getLinearly = (right - val) * arr(left) + (val - left) * arr(right)
 
             endif
+        end
+
+
+
+        !!!*
+        ! 与えられたxyz座標を球面座標に変換
+        ! 球面座標の中心は地球の中心 (xyz座標の原点とは異なる)
+        ! @function toSpherical
+        ! @param {double(3)} xyz
+        ! @param {Spherical}
+        !!!
+        function toSpherical(xyz)
+
+            type(Spherical) toSpherical
+
+            double precision xyz(3), earthCenteredXYZ(3), r, lambda, xylen
+
+            earthCenteredXYZ(1) = xyz(1)
+            earthCenteredXYZ(2) = xyz(2)
+            earthCenteredXYZ(3) = xyz(3) + earthRadius
+
+            r = vlen(earthCenteredXYZ)
+
+            xylen = sqrt(xyz(1)**2 + xyz(2)**2)
+
+            lambda = acos(xylen / r)
+
+            toSpherical = Spherical(r, lambda)
+
         end
 
 
