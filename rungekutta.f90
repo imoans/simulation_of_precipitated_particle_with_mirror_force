@@ -96,8 +96,8 @@ module CyclotronWithRungeKutta
                 !if (collisionOccurred(electron, h)) then
                 !    exit
                 !endif
-                !write(*,*) electron%r
-                write(*,*) i, vlen(electron%v)
+                write(*,*) electron%r
+                !write(*,*) i, vlen(electron%v)
                 !write(*,*) electron%v
 
                 t = t + h
@@ -420,10 +420,10 @@ module CyclotronWithRungeKutta
         ! @return {double(3)} 速度の変分
         !!!
         function rungekuttaParticle(pt, time, accel)
-            type(Particle) pt, p1, p2, p3
+            type(Particle) pt, p1, p2, p3, p4
             double precision time
             double precision rungekuttaParticle(3), k1(3), k2(3), k3(3), k4(3)
-            double precision d2(3), d3(3), d4(3) ! d2〜d4 微小時間で移動した距離
+            double precision d1(3), d2(3), d3(3), d4(3) ! d1〜d3 微小時間で移動した距離
 
             ! 一次導関数微分方程式の右辺
             interface
@@ -436,18 +436,21 @@ module CyclotronWithRungeKutta
             end interface
 
             k1 = accel(pt, time)
-            p1 = Particle(pt%r, pt%v + k1 * h / 2, pt%initialPA, pt%ignoreMF)
+            d1 = (pt%v + pt%v + k1 * h / 2) * h / 2 / 2 ! 台形
+            p1 = Particle(pt%r + d1, pt%v + k1 * h / 2, pt%initialPA, pt%ignoreMF)
 
-            d2 = (pt%v + pt%v + k1 * h / 2) * h / 2 / 2 ! 台形
             k2 = accel(p1, time + h / 2)
+            d2 = (p1%v + p1%v + k2 * h / 2) * h / 2 / 2 ! 台形
             p2 = Particle(p1%r + d2, p1%v + k2 * h / 2, pt%initialPA, pt%ignoreMF)
 
-            d3 = (pt%v + pt%v + k2 * h / 2) * h / 2 / 2 ! 台形
-            k3 = accel(p2, time + h / 2)
-            p3 = Particle(p2%r + d3, p2%v + k3 * h, pt%initialPA, pt%ignoreMF)
+            d3 = (pt%v + pt%v + k2 * h / 2) * h / 2 / 2! 台形
+            p3 = Particle(pt%r + d3, pt%v + k2 * h / 2, pt%initialPA, pt%ignoreMF)
+            k3 = accel(p3, time + h / 2)
 
             d4 = (pt%v + pt%v + k3 * h) * h / 2 ! 台形
-            k4 = accel(p3, time + h)
+            p4 = Particle(pt%r + d5, pt%v + k3 * h, pt%initialPA, pt%ignoreMF)
+
+            k4 = accel(p4, time + h)
 
            rungekuttaParticle = h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
