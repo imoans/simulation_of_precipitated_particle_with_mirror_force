@@ -12,13 +12,13 @@ module CyclotronWithRungeKutta
     ! spaceRange: グリッドの範囲
     integer, parameter :: spaceRange = 1024
 
-    ! h: 時間の刻み幅 [s]
+    ! h: 時間の刻み幅
     double precision, parameter :: h = 0.5d-1
 
     ! initial_r: 粒子の初期位置
     double precision, parameter :: initial_r(3) = (/0d0, 0d0, 5.12d0/)
 
-    ! V_LEN: 粒子の速度の絶対値 [m/s]
+    ! V_LEN: 粒子の速度の絶対値
     double precision, parameter :: V_LEN = 6.24d-2
 
     ! minZ: 最低高度 [m]
@@ -38,10 +38,10 @@ module CyclotronWithRungeKutta
         ! Mirror Forceを無視するかどうか
         logical:: ignoreMF = .true.
 
-        ! q: 電荷 [C]
+        ! q: 電荷
         double precision :: q = -1d0
 
-        ! m: 質量 [kg]
+        ! m: 質量
         double precision :: m = 1d0
 
     end type Particle
@@ -58,7 +58,7 @@ module CyclotronWithRungeKutta
         !!!
         subroutine run
 
-            ! t: 時間 [s]
+            ! t: 時間
             double precision :: t = 0
 
             integer i
