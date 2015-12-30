@@ -9,29 +9,17 @@
 !!!
 module CyclotronWithRungeKutta
 
-    ! 円周率
-    double precision, parameter:: pi = 3.14159265358979323d0
-
-    ! 自然対数の底
-    double precision, parameter:: e  = 2.71828182845904524d0
-
-    ! 光速 [m/s]
-    double precision, parameter:: c = 2.99792458d8
-
     ! spaceRange: グリッドの範囲
     integer, parameter :: spaceRange = 1024
 
     ! h: 時間の刻み幅 [s]
-    double precision, parameter :: h = 0.5d-2 * 7.15d-7 ! 電離圏でのサイクロトロン周期(仮)
+    double precision, parameter :: h = 0.5d-1
 
     ! initial_r: 粒子の初期位置
-    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 300d3/) ! 北極方向に地表から300km地点
-
-    ! earthRadius: 地球の半径 [m]
-    double precision, parameter :: earthRadius = 6371d3
+    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 5.12d0/)
 
     ! V_LEN: 粒子の速度の絶対値 [m/s]
-    double precision, parameter :: V_LEN = 6.24d-2 * c
+    double precision, parameter :: V_LEN = 6.24d-2
 
     ! minZ: 最低高度 [m]
     double precision, parameter :: minZ = 50d3
@@ -41,7 +29,7 @@ module CyclotronWithRungeKutta
 
     ! 粒子
     type Particle
-        ! r: 位置([m], [m], [m]), v: 速度 ([m/s], [m/s], [m/s])
+        ! r: 位置, v: 速度
         double precision :: r(3), v(3)
 
         ! 初期位置でのピッチ角 [°]
@@ -51,24 +39,12 @@ module CyclotronWithRungeKutta
         logical:: ignoreMF = .true.
 
         ! q: 電荷 [C]
-        double precision :: q = -1.602176d-19
+        double precision :: q = -1d0
 
         ! m: 質量 [kg]
-        double precision :: m = 9.10938356d-31
+        double precision :: m = 1d0
 
     end type Particle
-
-
-    ! 球面座標
-    type Spherical
-
-        ! 地球の中心からの距離 [m]
-        double precision :: r
-
-        ! 赤道平面とのなす角 [rad]
-        double precision :: lambda
-
-    end type Spherical
 
 
     contains
@@ -235,31 +211,11 @@ module CyclotronWithRungeKutta
         !!!
         function B(r)
 
-            double precision B(3), r(3), Bxy, k, sinL, cosL, spR3, xyAngle
-            double precision, parameter :: permeability = 4d-7 * pi ! 真空での透磁率 [H/m]
-            double precision, parameter :: dipoleMoment = 8.05d22   ! Earth's dipole moment [m]
-            type(Spherical) sp
+            double precision B(3), r(3)
 
-            !sp = toSpherical(r) ! xyz座標を球面座標に変換
-
-            !sinL = sin(sp%lambda)
-            !cosL = cos(sp%lambda)
-            !spR3 = sp%r**3
-
-            !k = permeability * dipoleMoment / 4 / pi ! 係数
-
-            !B(3) = k * (-3*sinL**2 + 1) / spR3
-
-            !! divB = 0となるように調整された、平行な磁場ベクトルのxyに平行な成分
-            !Bxy = k * cosL * sinL * ( 9 - 6 * sinL**2) / (2 * spR3)
-
-            !xyAngle = atan2(r(2), r(1))
-
-            !B(1) = Bxy * cos(xyAngle)
-            !B(2) = Bxy * sin(xyAngle)
             B(1) = 0d0
             B(2) = 0d0
-            B(3) = 50000d-9
+            B(3) = 1d0
 
         end
 
@@ -376,35 +332,6 @@ module CyclotronWithRungeKutta
                 getLinearly = (right - val) * arr(left) + (val - left) * arr(right)
 
             endif
-        end
-
-
-
-        !!!*
-        ! 与えられたxyz座標を球面座標に変換
-        ! 球面座標の中心は地球の中心 (xyz座標の原点とは異なる)
-        ! @function toSpherical
-        ! @param {double(3)} xyz
-        ! @param {Spherical}
-        !!!
-        function toSpherical(xyz)
-
-            type(Spherical) toSpherical
-
-            double precision xyz(3), earthCenteredXYZ(3), r, lambda, xylen
-
-            earthCenteredXYZ(1) = xyz(1)
-            earthCenteredXYZ(2) = xyz(2)
-            earthCenteredXYZ(3) = xyz(3) + earthRadius
-
-            r = vlen(earthCenteredXYZ)
-
-            xylen = sqrt(xyz(1)**2 + xyz(2)**2)
-
-            lambda = acos(xylen / r)
-
-            toSpherical = Spherical(r, lambda)
-
         end
 
 
