@@ -9,34 +9,28 @@
 !!!
 module CyclotronWithRungeKutta
 
-    ! spaceRange: グリッドの範囲
-    integer, parameter :: spaceRange = 1024
+   ! 円周率
+    double precision, parameter:: pi = 3.14159265358979323d0
+
+    ! 自然対数の底
+    double precision, parameter:: e  = 2.71828182845904524d0
 
     ! h: 時間の刻み幅
     double precision, parameter :: h = 0.5d-1
 
     ! initial_r: 粒子の初期位置
-    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 5.12d0/)
+    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 2d0/)
 
     ! V_LEN: 粒子の速度の絶対値
     double precision, parameter :: V_LEN = 6.24d-2
-
-    ! minZ: 最低高度 [m]
-    double precision, parameter :: minZ = 50d3
-
-    ! maxZ : 最高高度 [m]
-    double precision, parameter :: maxZ = 300d3
 
     ! 粒子
     type Particle
         ! r: 位置, v: 速度
         double precision :: r(3), v(3)
 
-        ! 初期位置でのピッチ角 [°]
-        double precision :: initialPA
-
         ! Mirror Forceを無視するかどうか
-        logical:: ignoreMF = .true.
+        logical:: ignoreMF = .false.
 
         ! q: 電荷
         double precision :: q = -1d0
@@ -47,39 +41,93 @@ module CyclotronWithRungeKutta
     end type Particle
 
 
+    ! 単一粒子運動シミュレーションに関わる変数(結果含む)を格納
+    type SimulationScope
+
+        ! 初期位置でのピッチ角 [°]
+        double precision :: initialPA
+
+        ! 終了するまでのイテレーション回数
+        integer iterations
+
+        ! 何回イテレーションするか
+        integer:: ITERATION_TIMES = 10000
+
+        ! 衝突したのかどうか
+        logical:: collided = .false.
+
+        ! 衝突した場合はその位置
+        double precision collidedR(3)
+
+        ! 衝突した場合そのときのピッチ角[°]
+        double precision collidedPA
+
+        ! ミラーポイントに達したのかどうか
+        logical:: bounded = .false.
+
+        ! ミラーポイント (あれば)
+        double precision mirrorPoint(3)
+
+    end type SimulationScope
+
+
     contains
 
 
         !!!*
         ! ルンゲクッタ法を繰り返し、各ステップにおける位置を計算
+        ! シミュレーション結果を返す
         !
         ! @subroutine run
+        ! @param {double} initialPA 初期のピッチアングル
+        ! @param {logical} ignoreMF ミラー力を無視するかどうか
+        ! @return {SimulationScope} simscope
         ! @public
         !!!
-        subroutine run
+        function run(initialPA, ignoreMF)
 
             ! t: 時間
             double precision :: t = 0
 
-            integer i
+            double precision initialPA, prevVz
+            logical ignoreMF
 
+            type(SimulationScope) sim, run
             type(Particle) electron
 
-            electron = createInitialParticle(45d0)
+            sim%initialPA = initialPA
 
-            do i = 1, 10000
+            electron = createInitialParticle(sim%initialPA, ignoreMF)
 
-                !if (collisionOccurred(electron, h)) then
-                !    exit
-                !endif
-                write(*,*) electron%r
-                !write(*,*) i, vlen(electron%v)
-                !write(*,*) electron%v
+            do i = 1, sim%ITERATION_TIMES
+
+                sim%iterations = i
+
+                if (collisionOccurred(electron, h)) then
+                    sim%collided = .true.
+                    sim%collidedR(1) = electron%r(1)
+                    sim%collidedR(2) = electron%r(2)
+                    sim%collidedR(3) = electron%r(3)
+                    sim%collidedPA = pitchAngle(electron)
+                    exit
+                endif
 
                 t = t + h
+
+                prevVz = electron%v(3)
                 call update(electron, t)
 
+                ! ミラーポイントの判定
+                if (prevVz <= 0 .AND. electron%v(3) >= 0) then
+                    sim%bounded = .true.
+                    sim%mirrorPoint(1) = electron%r(1)
+                    sim%mirrorPoint(2) = electron%r(2)
+                    sim%mirrorPoint(3) = electron%r(3)
+                endif
             end do
+
+            run = sim
+
         end
 
 
@@ -117,23 +165,6 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 与えられた数だけ粒子を生成する
-        ! @function createManyParticles
-        ! @param {integer} num 粒子の数
-        ! @return {Particle(num)} 粒子を要素に持つ配列
-        !!!
-        function createManyParticles(num)
-            integer num
-            type(Particle) createManyParticles(num)
-
-            do i = 1, num
-                createManyParticles(i) = createInitialParticle(89d0)
-            end do
-
-        end
-
-
-        !!!*
         ! 中性大気との衝突が起きたかどうか、高度(x)に応じてランダムに結果を生成
         ! @function collisionOccurred
         ! @param {Particle} pt 粒子
@@ -159,9 +190,10 @@ module CyclotronWithRungeKutta
         ! @return {double} 確率
         !!!
         function collisionProbabilityByZ(z, dt)
-            double precision z, dt, collisionProbabilityByZ
+            double precision z, dt, collisionProbabilityByZ, lambda
 
-            collisionProbabilityByZ = e**(-z * 10000 * dt)
+            lambda = 10 ** (-21 * z + 21 / 4)
+            collisionProbabilityByZ = 1 - e ** (-lambda * dt)
 
         end
 
@@ -169,19 +201,22 @@ module CyclotronWithRungeKutta
         !!!*
         ! ピッチ角を与え、初期の粒子を得る
         ! @function createInitialParticle
+        ! @param {double} angle ピッチ角[°]
+        ! @param {logical} ignoreMF ミラー力を無視するかどうか
         ! @return {Particle} 粒子
         !!!
-        function createInitialParticle(angle)
+        function createInitialParticle(angle, ignoreMF)
             type(Particle) createInitialParticle
 
-            double precision initialPA, initialBx, angle, initialVel(3)
+            double precision initialBx, angle, initialVel(3)
+            logical ignoreMF
 
 
             initialVel(1) = 0d0
             initialVel(2) = sin(angle * pi / 180) * V_LEN
             initialVel(3) = - cos(angle * pi / 180) * V_LEN
 
-            createInitialParticle = Particle(initial_r, initialVel, initialPA)
+            createInitialParticle = Particle(initial_r, initialVel, ignoreMF)
 
         end
 
@@ -207,15 +242,32 @@ module CyclotronWithRungeKutta
         ! ある座標におけるdipole磁場を、divB = 0 となるように補正したもの
         ! @function B
         ! @param {double(3)} r 粒子の位置
+        ! @param {logical} ignoreMF ミラー力を無視するかどうか
         ! @return {double(3)} 磁場
         !!!
-        function B(r)
+        function B(r, ignoreMF)
 
-            double precision B(3), r(3)
+            double precision B(3), r(3), B0, r0, z, xylen, Br
+            logical ignoreMF
 
-            B(1) = 0d0
-            B(2) = 0d0
-            B(3) = 1d0
+            z = r(3)
+            r0 = 21d0 ! 地球
+            B0 = 1d0
+            B(3) = - B0 * (1 + z / r0)**(-3)
+
+            if (ignoreMF) then
+                B(1) = 0d0
+                B(2) = 0d0
+
+            else
+                xylen = sqrt(r(1)**2 + r(2)**2)
+                xyangle = atan2(r(2), r(1))
+
+                Br = B(3) * 3 * xylen / (2 * (r0 + z))
+
+                B(1) = Br * cos(xyangle)
+                B(2) = Br * sin(xyangle)
+            endif
 
         end
 
@@ -250,7 +302,7 @@ module CyclotronWithRungeKutta
             type(Particle) pt
             double precision acceleration(3), time
 
-            acceleration = pt%q / pt%m * ( El(pt%r) + cross( pt%v, B(pt%r) ))
+            acceleration = pt%q / pt%m * ( El(pt%r) + cross( pt%v, B(pt%r, pt%ignoreMF) ))
 
         end function
 
@@ -266,7 +318,7 @@ module CyclotronWithRungeKutta
             type(Particle) pt
             double precision cyclotronPeriod
 
-            cyclotronPeriod = 2 * pi * pt%m / abs(pt%q) / vlen(B(pt%r))
+            cyclotronPeriod = 2 * pi * pt%m / abs(pt%q) / vlen(B(pt%r, pt%ignoreMF))
 
         end function
 
@@ -298,41 +350,30 @@ module CyclotronWithRungeKutta
             cross(3) = x(1) * y(2) - x(2) * y(1)
         end
 
+        ! 配列の値の総和 を、 denomiで割った値を返す
+        function arrMean(arr, length, denomi)
 
-        !!!*
-        ! 与えられたスカラー配列を連続値とみなし、インデックスから値を得る
-        ! 内分した値を利用
-        ! @function getLinearly
-        ! @param {dimension} arr スカラーの配列
-        ! @param {double} val インデックス (0スタート)
-        !!!
-        function getLinearly(arr, val)
+            integer length, denomi
 
-            double precision getLinearly, val
-            integer left, right
-            integer, dimension(spaceRange) :: arr
+            double precision, dimension(length):: arr
+            double precision arrMean, total
 
-            val   = val + 1   ! インデックスを 1スタートに変更
-            left  = int(val)  ! 左端
-            right = left + 1  ! 右端
-
-            ! 値が配列の右端より右にあるときは0を返す
-            if (right > spaceRange) then
-                getLinearly = 0d0
-
-            ! 値が配列の左端より左にあるときはarr(1)を返す
-            elseif (right < 1) then
-                getLinearly = arr(1)
-
-            ! valを挟む整数の右端が未定義のときはそれを0とみなす
-            elseif (left == spaceRange) then
-                getLinearly = (right - val) * arr(left)
+            if (denomi == 0) then
+                arrMean = 0d0
 
             else
-                getLinearly = (right - val) * arr(left) + (val - left) * arr(right)
+
+                total = 0d0
+
+                do i = 1, length
+                    total = total + arr(i)
+                end do
+
+                arrMean = total / denomi
 
             endif
-        end
+        end function
+
 
 
 
@@ -364,18 +405,18 @@ module CyclotronWithRungeKutta
 
             k1 = accel(pt, time)
             d1 = (pt%v + pt%v + k1 * h / 2) * h / 2 / 2 ! 台形
-            p1 = Particle(pt%r + d1, pt%v + k1 * h / 2, pt%initialPA, pt%ignoreMF)
+            p1 = Particle(pt%r + d1, pt%v + k1 * h / 2, pt%ignoreMF)
 
             k2 = accel(p1, time + h / 2)
             d2 = (p1%v + p1%v + k2 * h / 2) * h / 2 / 2 ! 台形
-            p2 = Particle(p1%r + d2, p1%v + k2 * h / 2, pt%initialPA, pt%ignoreMF)
+            p2 = Particle(p1%r + d2, p1%v + k2 * h / 2, pt%ignoreMF)
 
             d3 = (pt%v + pt%v + k2 * h / 2) * h / 2 / 2! 台形
-            p3 = Particle(pt%r + d3, pt%v + k2 * h / 2, pt%initialPA, pt%ignoreMF)
+            p3 = Particle(pt%r + d3, pt%v + k2 * h / 2, pt%ignoreMF)
             k3 = accel(p3, time + h / 2)
 
             d4 = (pt%v + pt%v + k3 * h) * h / 2 ! 台形
-            p4 = Particle(pt%r + d5, pt%v + k3 * h, pt%initialPA, pt%ignoreMF)
+            p4 = Particle(pt%r + d5, pt%v + k3 * h, pt%ignoreMF)
 
             k4 = accel(p4, time + h)
 
@@ -387,9 +428,101 @@ module CyclotronWithRungeKutta
 end
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 program main
+
     use CyclotronWithRungeKutta
 
-    call run
+    integer, parameter:: TRIAL_NUM = 100
+
+    ! 100回のシミュレーション結果
+    type MultiSimulationScope
+
+        ! 最初のピッチ角
+        double precision initialPA
+
+        ! 終了するまでのイテレーション回数
+        integer, dimension(TRIAL_NUM):: iterationsArr = 0d0
+
+        ! 衝突した回数
+        integer:: collidedNum = 0
+
+        ! 衝突した位置(z)の配列
+        double precision, dimension(TRIAL_NUM):: collidedZArr = 0d0
+
+        ! 衝突したピッチ角の配列
+        double precision, dimension(TRIAL_NUM):: collidedPAArr = 0d0
+
+        ! ミラーポイントに達した回数
+        integer:: boundedNum = 0
+
+        ! ミラーポイント(z)の配列
+        double precision, dimension(TRIAL_NUM):: mirrorZArr = 0d0
+
+    end type MultiSimulationScope
+
+    type(MultiSimulationScope) msim
+    type(SimulationScope) sim
+
+    ! ミラー力を無視するかどうか
+    logical:: ignoreMF = .true.
+
+    double precision:: angle = 0
+
+    do i = 0, 90
+
+        !angle = 0.02 * i + 60
+        angle = i
+
+        msim = MultiSimulationScope(angle)
+
+        do j = 1, TRIAL_NUM
+            sim = run(angle, ignoreMF)
+
+            msim%iterationsArr(j) = sim%iterations
+            if (sim%collided) then
+                msim%collidedNum = msim%collidedNum + 1
+                msim%collidedZArr(j) = sim%collidedR(3)
+                msim%collidedPAArr(j) = sim%collidedPA
+            endif
+
+            if (sim%bounded) then
+                msim%boundedNum = msim%boundedNum + 1
+                msim%mirrorZArr(j) = sim%mirrorPoint(3)
+            endif
+        end do
+
+        write(*, *) angle, msim%boundedNum, msim%collidedNum, &
+            & 300 * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
+            & 300 * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
+            & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
+
+    end do
+
 
 end
