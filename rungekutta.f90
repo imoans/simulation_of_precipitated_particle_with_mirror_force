@@ -16,10 +16,10 @@ module CyclotronWithRungeKutta
     double precision, parameter:: e  = 2.71828182845904524d0
 
     ! h: 時間の刻み幅
-    double precision, parameter :: h = 0.5d-1
+    double precision, parameter :: h = 5d-2
 
-    ! initial_r: 粒子の初期位置
-    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 2d0/)
+    ! initial_r: 粒子の初期位置 (184mを1として、z = 300[km])
+    double precision, parameter :: initial_r(3) = (/0d0, 0d0, 1.63d3/)
 
     ! V_LEN: 粒子の速度の絶対値
     double precision, parameter :: V_LEN = 6.24d-2
@@ -51,7 +51,7 @@ module CyclotronWithRungeKutta
         integer iterations
 
         ! 何回イテレーションするか
-        integer:: ITERATION_TIMES = 10000
+        integer:: ITERATION_TIMES = 20000000
 
         ! 衝突したのかどうか
         logical:: collided = .false.
@@ -192,8 +192,14 @@ module CyclotronWithRungeKutta
         function collisionProbabilityByZ(z, dt)
             double precision z, dt, collisionProbabilityByZ, lambda
 
-            lambda = 10 ** (-21 * z + 21 / 4)
+
+            ! 75d3/184のとき0 , 125d3/184のとき-3.5
+            ! lambda: サイクロトロン1周期のうちに何回衝突するか
+            lambda = 10 ** (-1.288d-2 * z + 1.288d-2 * 75d3 / 184)
+
             collisionProbabilityByZ = 1 - e ** (-lambda * dt)
+
+            write(*,*) 184d-3 * z, collisionProbabilityByZ
 
         end
 
@@ -251,8 +257,8 @@ module CyclotronWithRungeKutta
             logical ignoreMF
 
             z = r(3)
-            r0 = 21d0 ! 地球
-            B0 = 1d0
+            r0 = 3.46d4! 地球表面の座標
+            B0 = 1d0 ! 地球表面の磁場
             B(3) = - B0 * (1 + z / r0)**(-3)
 
             if (ignoreMF) then
@@ -458,7 +464,9 @@ program main
 
     use CyclotronWithRungeKutta
 
-    integer, parameter:: TRIAL_NUM = 100
+    implicit none
+
+    integer, parameter:: TRIAL_NUM = 3
 
     ! 100回のシミュレーション結果
     type MultiSimulationScope
@@ -494,9 +502,11 @@ program main
 
     double precision:: angle = 0
 
-    do i = 0, 90
+    integer i,j
 
-        !angle = 0.02 * i + 60
+    do i = 0, 0
+
+        !angle = 0.02 * i + 72
         angle = i
 
         msim = MultiSimulationScope(angle)
@@ -517,10 +527,10 @@ program main
             endif
         end do
 
-        write(*, *) angle, msim%boundedNum, msim%collidedNum, &
-            & 300 * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
-            & 300 * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
-            & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
+        !write(*, *) angle, msim%boundedNum, msim%collidedNum, &
+        !    & 184d-3 * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
+        !    & 184d-3 * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
+        !    & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
 
     end do
 
