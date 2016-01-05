@@ -78,7 +78,7 @@ module CyclotronWithRungeKutta
         ! ルンゲクッタ法を繰り返し、各ステップにおける位置を計算
         ! シミュレーション結果を返す
         !
-        ! @subroutine run
+        ! @function run
         ! @param {double} initialPA 初期のピッチアングル
         ! @param {logical} ignoreMF ミラー力を無視するかどうか
         ! @return {SimulationScope} simscope
@@ -128,7 +128,7 @@ module CyclotronWithRungeKutta
 
             run = sim
 
-        end
+        end function
 
 
         !!!*
@@ -147,7 +147,7 @@ module CyclotronWithRungeKutta
             pt%v = pt%v + runge
             pt%r = pt%r + pt%v * h
 
-        end
+        end subroutine
 
 
         !!!*
@@ -161,7 +161,7 @@ module CyclotronWithRungeKutta
             type(Particle) pt
 
             kineticEnergy = 0.5d0 * pt%m * vlen(pt%v) ** 2
-        end
+        end function
 
 
         !!!*
@@ -179,7 +179,7 @@ module CyclotronWithRungeKutta
             call random_number(randomNum)
             collisionOccurred = (randomNum < collisionProbabilityByZ(pt%r(3), dt))
 
-        end
+        end function
 
 
         !!!*
@@ -201,7 +201,7 @@ module CyclotronWithRungeKutta
 
             write(*,*) 184d-3 * z, collisionProbabilityByZ
 
-        end
+        end function
 
 
         !!!*
@@ -224,7 +224,7 @@ module CyclotronWithRungeKutta
 
             createInitialParticle = Particle(initial_r, initialVel, ignoreMF)
 
-        end
+        end function
 
 
         !!!*
@@ -240,7 +240,7 @@ module CyclotronWithRungeKutta
             absVelocity = vlen(pt%v)
             pitchAngle = 180 - acos(pt%v(3) / absVelocity) * 180 / pi
 
-        end
+        end function
 
 
 
@@ -275,7 +275,7 @@ module CyclotronWithRungeKutta
                 B(2) = Br * sin(xyangle)
             endif
 
-        end
+        end function
 
 
         !!!*
@@ -292,7 +292,7 @@ module CyclotronWithRungeKutta
             El(2) = 0d0
             El(3) = 0d0
 
-        end
+        end function
 
 
 
@@ -354,7 +354,7 @@ module CyclotronWithRungeKutta
             cross(1) = x(2) * y(3) - x(3) * y(2)
             cross(2) = x(3) * y(1) - x(1) * y(3)
             cross(3) = x(1) * y(2) - x(2) * y(1)
-        end
+        end function
 
         ! 配列の値の総和 を、 denomiで割った値を返す
         function arrMean(arr, length, denomi)
@@ -406,7 +406,7 @@ module CyclotronWithRungeKutta
                     type(Particle) p
                     double precision accel(3)
                     double precision t
-                end
+                end function
             end interface
 
             k1 = accel(pt, time)
@@ -429,11 +429,9 @@ module CyclotronWithRungeKutta
            rungekuttaParticle = h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 
            return
-        end
+        end function
     !end contains
-end
-
-
+end module
 
 
 
@@ -507,7 +505,7 @@ program main
     do i = 0, 0
 
         !angle = 0.02 * i + 72
-        angle = i
+        angle = 85
 
         msim = MultiSimulationScope(angle)
 
@@ -535,4 +533,4 @@ program main
     end do
 
 
-end
+end program
