@@ -84,7 +84,7 @@ module CyclotronWithRungeKutta
         ! @return {SimulationScope} simscope
         ! @public
         !!!
-        function run(initialPA, ignoreMF)
+        function run(initialPA, ignoreMF) result(sim)
 
             ! t: 時間
             double precision :: t = 0
@@ -92,7 +92,7 @@ module CyclotronWithRungeKutta
             double precision initialPA, prevVz
             logical ignoreMF
 
-            type(SimulationScope) sim, run
+            type(SimulationScope) sim
             type(Particle) electron
 
             sim%initialPA = initialPA
@@ -110,12 +110,19 @@ module CyclotronWithRungeKutta
                     sim%collidedR(3) = electron%r(3)
                     sim%collidedPA = pitchAngle(electron)
                     exit
+
+                elseif (electron%r(3) > initial_r(3)) then ! 初期位置より大きくなったら終了
+                    exit
+
+                elseif (electron%r(3) < 0) then ! 地球表面に到達したら終了
+                    exit
                 endif
 
                 t = t + h
 
                 prevVz = electron%v(3)
                 call update(electron, t)
+
 
                 ! ミラーポイントの判定
                 if (prevVz <= 0 .AND. electron%v(3) >= 0) then
@@ -125,8 +132,6 @@ module CyclotronWithRungeKutta
                     sim%mirrorPoint(3) = electron%r(3)
                 endif
             end do
-
-            run = sim
 
         end function
 
@@ -199,8 +204,6 @@ module CyclotronWithRungeKutta
 
             collisionProbabilityByZ = 1 - e ** (-lambda * dt)
 
-            write(*,*) 184d-3 * z, collisionProbabilityByZ
-
         end function
 
 
@@ -211,8 +214,8 @@ module CyclotronWithRungeKutta
         ! @param {logical} ignoreMF ミラー力を無視するかどうか
         ! @return {Particle} 粒子
         !!!
-        function createInitialParticle(angle, ignoreMF)
-            type(Particle) createInitialParticle
+        function createInitialParticle(angle, ignoreMF) result(pt)
+            type(Particle) pt
 
             double precision initialBx, angle, initialVel(3)
             logical ignoreMF
@@ -222,7 +225,7 @@ module CyclotronWithRungeKutta
             initialVel(2) = sin(angle * pi / 180) * V_LEN
             initialVel(3) = - cos(angle * pi / 180) * V_LEN
 
-            createInitialParticle = Particle(initial_r, initialVel, ignoreMF)
+            pt = Particle(initial_r, initialVel, ignoreMF)
 
         end function
 
@@ -464,7 +467,7 @@ program main
 
     implicit none
 
-    integer, parameter:: TRIAL_NUM = 3
+    integer, parameter:: TRIAL_NUM = 100
 
     ! 100回のシミュレーション結果
     type MultiSimulationScope
@@ -502,10 +505,10 @@ program main
 
     integer i,j
 
-    do i = 0, 0
+    do i = 0, 90
 
         !angle = 0.02 * i + 72
-        angle = 85
+        angle = i
 
         msim = MultiSimulationScope(angle)
 
@@ -525,10 +528,10 @@ program main
             endif
         end do
 
-        !write(*, *) angle, msim%boundedNum, msim%collidedNum, &
-        !    & 184d-3 * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
-        !    & 184d-3 * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
-        !    & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
+        write(*, *) angle, msim%boundedNum, msim%collidedNum, &
+            & 184d-3 * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
+            & 184d-3 * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
+            & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
 
     end do
 
