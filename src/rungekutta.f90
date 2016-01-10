@@ -21,6 +21,9 @@ module CyclotronWithRungeKutta
     ! initial_r: 粒子の初期位置 (184mを1として、z = 300[km])
     double precision, parameter :: initial_r(3) = (/0d0, 0d0, 1.63d3/)
 
+    ! KM_PER_UNIT: x,y,zが1のときの距離[km]
+    double precision, parameter :: KM_PER_UNIT = 184d-3
+
     ! V_LEN: 粒子の速度の絶対値
     double precision, parameter :: V_LEN = 6.24d-2
 
@@ -123,7 +126,6 @@ module CyclotronWithRungeKutta
                 prevVz = electron%v(3)
                 call update(electron, t)
 
-
                 ! ミラーポイントの判定
                 if (prevVz <= 0 .AND. electron%v(3) >= 0) then
                     sim%bounded = .true.
@@ -154,7 +156,6 @@ module CyclotronWithRungeKutta
 
         end subroutine
 
-
         !!!*
         ! 粒子の速度から運動エネルギーを計算
         ! @function kineticEnergy
@@ -182,27 +183,28 @@ module CyclotronWithRungeKutta
             logical collisionOccurred
 
             call random_number(randomNum)
-            collisionOccurred = (randomNum < collisionProbabilityByZ(pt%r(3), dt))
+            collisionOccurred = (randomNum < collisionProbabilityByHeight(pt%r(3), dt))
 
         end function
 
 
         !!!*
         ! 与えられたz座標における中性大気との衝突確率
-        ! @function collisionProbabilityByZ
+        ! @function collisionProbabilityByHeight
         ! @param {double} z
         ! @param {double} dt 時間の微小変化
         ! @return {double} 確率
         !!!
-        function collisionProbabilityByZ(z, dt)
-            double precision z, dt, collisionProbabilityByZ, lambda
+        function collisionProbabilityByHeight(z, dt)
+            double precision z, dt, collisionProbabilityByHeight, lambda
 
 
             ! 75d3/184のとき0 , 125d3/184のとき-3.5
-            ! lambda: サイクロトロン1周期のうちに何回衝突するか
+            ! lambda: サイクロトロン1周期のうちに何回衝突するか(75kmを基準(1)とする)
             lambda = 10 ** (-1.288d-2 * z + 1.288d-2 * 75d3 / 184)
 
-            collisionProbabilityByZ = 1 - e ** (-lambda * dt)
+            ! 指数分布の累積分布関数(高度300kmからz=hまで落ちてくる時に衝突が起きる確率)
+            collisionProbabilityByHeight = 1 - e ** (-lambda * dt)
 
         end function
 
@@ -440,28 +442,11 @@ end module
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-program main
+!!!*
+! サイクロトロン運動に関する各種シミュレーション
+! @module CyclotronSimulation
+!!!
+module CyclotronSimulation
 
     use CyclotronWithRungeKutta
 
@@ -495,45 +480,182 @@ program main
 
     end type MultiSimulationScope
 
-    type(MultiSimulationScope) msim
-    type(SimulationScope) sim
 
-    ! ミラー力を無視するかどうか
-    logical:: ignoreMF = .true.
+    contains
 
-    double precision:: angle = 0
+        !!!*
+        ! ピッチ角を0°から90°まで1度ずつ増やしながら、各100回のシミュレーション結果を表示
+        ! @param {logical} ignoreMF ミラー力を無視するか
+        !
+        ! @result
+        ! {ピッチ角}\t{ミラーポイントに達した数}\t{衝突した数}\t{平均ミラーポイント[km]}\t{平均衝突点{km}}\t{衝突時のピッチ角平均[°]}
+        !!!
+        subroutine everyAngle(ignoreMF)
 
-    integer i,j
+            type(MultiSimulationScope) msim
+            type(SimulationScope) sim
+            integer i,j
+            logical ignoreMF
+            double precision angle
 
-    do i = 0, 90
+            do i = 0, 90
 
-        !angle = 0.02 * i + 72
-        angle = i
+                angle = i
 
-        msim = MultiSimulationScope(angle)
+                do j = 1, TRIAL_NUM
 
-        do j = 1, TRIAL_NUM
-            sim = run(angle, ignoreMF)
+                    sim = run(angle, ignoreMF)
 
-            msim%iterationsArr(j) = sim%iterations
-            if (sim%collided) then
-                msim%collidedNum = msim%collidedNum + 1
-                msim%collidedZArr(j) = sim%collidedR(3)
-                msim%collidedPAArr(j) = sim%collidedPA
-            endif
+                    msim%iterationsArr(j) = sim%iterations
 
-            if (sim%bounded) then
-                msim%boundedNum = msim%boundedNum + 1
-                msim%mirrorZArr(j) = sim%mirrorPoint(3)
-            endif
-        end do
+                    if (sim%collided) then
+                        msim%collidedNum = msim%collidedNum + 1
+                        msim%collidedZArr(j) = sim%collidedR(3)
+                        msim%collidedPAArr(j) = sim%collidedPA
+                    endif
 
-        write(*, *) angle, msim%boundedNum, msim%collidedNum, &
-            & 184d-3 * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
-            & 184d-3 * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
-            & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
+                    if (sim%bounded) then
+                        msim%boundedNum = msim%boundedNum + 1
+                        msim%mirrorZArr(j) = sim%mirrorPoint(3)
+                    endif
+                end do
 
+                write(*, *) angle, msim%boundedNum, msim%collidedNum, &
+                    & KM_PER_UNIT * arrMean(msim%mirrorZArr, TRIAL_NUM, msim%boundedNum), &
+                    & KM_PER_UNIT * arrMean(msim%collidedZArr, TRIAL_NUM, msim%collidedNum), &
+                    & arrMean(msim%collidedPAArr, TRIAL_NUM, msim%collidedNum)
+            end do
+        end subroutine
+
+
+        !!!*
+        ! ピッチ角分布を与え、ランダムなピッチ角から衝突した位置
+        ! @param {Integer} iterations 何回実行するか
+        ! @param {logical} ignoreMF ミラー力を無視するか
+        ! @param {logical} useNorm ピッチ角分布として正規分布を使うかどうか
+        ! @param {double} mean ピッチ角分布として正規分布を使った場合、その平均
+        ! @param {double} sd   ピッチ角分布として正規分布を使った場合、その標準偏差
+        ! @result {ピッチ角}\t{衝突位置[km]}
+        !!!
+        subroutine collidedHeights(iterations, ignoreMF, useNorm, mean, sd)
+
+            integer i, iterations
+            logical ignoreMF, useNorm
+            double precision angle, mean, sd
+            type(SimulationScope) sim
+
+            do i = 1, iterations
+
+                if (useNorm) then
+                    angle = normPA(mean, sd)
+                else
+                    angle = uniformPA()
+                end if
+
+                sim = run(angle, ignoreMF)
+
+                if (sim%collided) then
+                    write(*, *) angle, sim%collidedR(3) * KM_PER_UNIT
+                else
+                    write(*, *) angle, 0
+                end if
+
+            end do
+        end subroutine
+
+
+        ! 正規分布なピッチ角を表示 (90°以上は出ない前提で)
+        subroutine normalDistributionOfPA(mean, sd, iterations)
+            double precision mean, sd
+            integer i, iterations
+
+            do i = 1, iterations
+                write(*, *) normPA(mean, sd)
+            end do
+        end subroutine
+
+        !!!*
+        ! 一様分布[0, 90)からランダムにピッチ角を取得
+        !!!
+        function uniformPA() result(angle)
+            double precision angle
+            call random_number(angle)
+            angle = angle * 90
+        end function
+
+
+        !!!
+        ! ボックスミュラー法により2つの一様分布に従う確率変数から標準正規分布に従う確率変数を生成
+        !!!
+        function boxMuller()
+            double precision urand1, urand2, boxMuller,pi
+            pi = 3.14159265358979323d0
+            call random_number(urand1)
+            call random_number(urand2)
+            boxMuller = sqrt(-2*log(urand1)) * cos(2*pi*urand2)
+        end function
+
+
+        !!!*
+        ! 正規分布からランダムにピッチ角を取得
+        !!!
+        function normPA(mean, sd) result(angle)
+            double precision angle, mean, sd
+
+            angle = boxMuller() * sd + mean
+
+            do while (angle >= 90 .OR. angle <= 0)
+                angle = boxMuller() * sd + mean
+            end do
+
+        end function
+end module
+
+
+!!!*
+! @arg --ignoreMF ミラー力を考慮しない場合のオプション
+! @arg --useNorm  Pitch Angle分布として正規分布を使う場合のオプション
+program main
+
+    use CyclotronSimulation
+
+    implicit none
+    integer :: iterations = 1000
+    logical :: useNorm  = .false.
+    logical :: ignoreMF = .false.
+
+    integer :: k, argc
+    character :: argv*10
+    character(10) meanStr, sdStr
+    double precision :: mean = 70d0
+    double precision :: sd = 2d0
+
+    argc = iargc()
+
+    do k = 1, argc
+        call getarg(k, argv)
+
+        if (argv == '--ignoreMF') then
+            ignoreMF = .true.
+
+        else if (argv == '--useNorm') then
+            useNorm = .true.
+
+        else if (argv == '--mean') then
+            call getarg(k + 1, meanStr)
+            read(meanStr, *) mean
+
+        else if (argv == '--sd') then
+            call getarg(k + 1, sdStr)
+            read(sdStr, *) sd
+
+        end if
     end do
+
+    write (*, *) '# ignoreMF:', ignoreMF, 'useNorm:', useNorm, 'mean:', mean, 'sd:', sd
+    write (*, *) '# mean and sd affect only when useNorm == T'
+
+    call collidedHeights(iterations, ignoreMF, useNorm, mean, sd)
 
 
 end program
