@@ -1,74 +1,75 @@
 !!!*
-! ルンゲクッタ法でサイクロトロン運動を求める
+! solving cyclotron motion with Runge-Kutta method
 ! @module CyclotronWithRungeKutta
-
-! xyz座標系について 原点： 地表の北極点 (地球の中心ではない！)
-! x: 赤道平面と平行な軸 [m]
-! y: (xとzに垂直な方向) [m]
-! z: 天頂方向 [m]
+!
+! xyz coordinate system
+! oringin: center of Earth
+! x: parallel to the equatorial plane [m]
+! z: zenith direction [m]
 !!!
 module CyclotronWithRungeKutta
 
-   ! 円周率
+    ! Pi
     double precision, parameter:: pi = 3.14159265358979323d0
 
-    ! 自然対数の底
+    ! base of natural logarithm
     double precision, parameter:: e  = 2.71828182845904524d0
 
-    ! h: 時間の刻み幅
+    ! h: step size of time
     double precision, parameter :: h = 5d-2
 
-    ! initial_r: 粒子の初期位置 (184mを1として、z = 300[km])
+    ! initial_r: initial position of a particle (184m as one unit, z = 300[km])
     double precision, parameter :: initial_r(3) = (/0d0, 0d0, 1.63d3/)
 
-    ! KM_PER_UNIT: x,y,zが1のときの距離[km]
+    ! KM_PER_UNIT: distance unit [km]
+    ! distance unit is speed of light multiplied by cyclotron period at surface of Earth
     double precision, parameter :: KM_PER_UNIT = 184d-3
 
-    ! V_LEN: 粒子の速度の絶対値
+    ! V_LEN: absolute value of particle velocity
     double precision, parameter :: V_LEN = 6.24d-2
 
-    ! 粒子
+    ! particle
     type Particle
-        ! r: 位置, v: 速度
+        ! r: position, v: velocity
         double precision :: r(3), v(3)
 
-        ! Mirror Forceを無視するかどうか
-        logical:: ignoreMF = .false.
+        ! ignoreMF: whether Mirror Force is ignored
+        logical ignoreMF
 
-        ! q: 電荷
+        ! q: charge (unit is charge of electron [Q])
         double precision :: q = -1d0
 
-        ! m: 質量
+        ! m: mass (unit is mass of electron [kg])
         double precision :: m = 1d0
 
     end type Particle
 
 
-    ! 単一粒子運動シミュレーションに関わる変数(結果含む)を格納
+    ! SimulationScope: variables and results involved single particle simulation
     type SimulationScope
 
-        ! 初期位置でのピッチ角 [°]
+        ! pitch angle at initial position [°]
         double precision :: initialPA
 
-        ! 終了するまでのイテレーション回数
+        ! number of iterations until exit this program
         integer iterations
 
-        ! 何回イテレーションするか
+        ! number of iterations
         integer:: ITERATION_TIMES = 20000000
 
-        ! 衝突したのかどうか
+        ! whether collision has occured
         logical:: collided = .false.
 
-        ! 衝突した場合はその位置
+        ! collision position when collision occured
         double precision collidedR(3)
 
-        ! 衝突した場合そのときのピッチ角[°]
+        ! pitch angle when collision occured [°]
         double precision collidedPA
 
-        ! ミラーポイントに達したのかどうか
+        ! whether a particle reaches mirror point
         logical:: bounded = .false.
 
-        ! ミラーポイント (あれば)
+        ! mirror point
         double precision mirrorPoint(3)
 
     end type SimulationScope
@@ -78,18 +79,18 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! ルンゲクッタ法を繰り返し、各ステップにおける位置を計算
-        ! シミュレーション結果を返す
+        ! calcurate position of particle in each step with Runge-Kutta method
+        ! return result of simulation
         !
         ! @function run
-        ! @param {double} initialPA 初期のピッチアングル
-        ! @param {logical} ignoreMF ミラー力を無視するかどうか
+        ! @param {double} initialPA pitch angle of initial position
+        ! @param {logical} ignoreMF whether Mirror Force is ignored
         ! @return {SimulationScope} simscope
         ! @public
         !!!
         function run(initialPA, ignoreMF) result(sim)
 
-            ! t: 時間
+            ! t: time
             double precision :: t = 0
 
             double precision initialPA, prevVz
@@ -114,10 +115,12 @@ module CyclotronWithRungeKutta
                     sim%collidedPA = pitchAngle(electron)
                     exit
 
-                elseif (electron%r(3) > initial_r(3)) then ! 初期位置より大きくなったら終了
+                ! exit when a particle reaches initial position
+                elseif (electron%r(3) > initial_r(3)) then
                     exit
 
-                elseif (electron%r(3) < 0) then ! 地球表面に到達したら終了
+                ! exit when a particle reaches surface of Earth
+                elseif (electron%r(3) < 0) then
                     exit
                 endif
 
@@ -126,7 +129,7 @@ module CyclotronWithRungeKutta
                 prevVz = electron%v(3)
                 call update(electron, t)
 
-                ! ミラーポイントの判定
+                ! save mirror point
                 if (prevVz <= 0 .AND. electron%v(3) >= 0) then
                     sim%bounded = .true.
                     sim%mirrorPoint(1) = electron%r(1)
@@ -139,10 +142,10 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 与えられた粒子の位置と磁場を更新
+        ! update position of a particle and magnitude of magnetic field
         ! @subroutine update
-        ! @param {Particle} pt 粒子
-        ! @param {double} time 時間
+        ! @param {Particle} pt particle
+        ! @param {double} time time
         !!!
         subroutine update(pt, time)
 
@@ -157,10 +160,10 @@ module CyclotronWithRungeKutta
         end subroutine
 
         !!!*
-        ! 粒子の速度から運動エネルギーを計算
+        ! calculate kinetic energy by velocity of a particle
         ! @function kineticEnergy
-        ! @param {Particle} 粒子
-        ! @return {double} 運動エネルギー
+        ! @param {Particle} particle
+        ! @return {double} kinetic energy
         !!!
         function kineticEnergy(pt)
             double precision kineticEnergy, v_len
@@ -171,11 +174,11 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 中性大気との衝突が起きたかどうか、高度(x)に応じてランダムに結果を生成
+        ! determine whether collision with particles in a neutral atmosphere has occurred by height(z value) of particle
         ! @function collisionOccurred
-        ! @param {Particle} pt 粒子
-        ! @param {double} dt 時間の微小変化
-        ! @return {logical} 中性大気との衝突したかどうか
+        ! @param {Particle} pt particle
+        ! @param {double} dt minor change of time
+        ! @return {logical} whether collision has occurred
         !!!
         function collisionOccurred(pt, dt)
             type(Particle) pt
@@ -189,32 +192,28 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 与えられたz座標における中性大気との衝突確率
+        ! collision probability at certain height(z value)
         ! @function collisionProbabilityByHeight
         ! @param {double} z
-        ! @param {double} dt 時間の微小変化
-        ! @return {double} 確率
+        ! @param {double} dt minor change of time
+        ! @return {double} probability
         !!!
         function collisionProbabilityByHeight(z, dt)
             double precision z, dt, collisionProbabilityByHeight, lambda
 
-
-            ! 75d3/184のとき0 , 125d3/184のとき-3.5
-            ! lambda: サイクロトロン1周期のうちに何回衝突するか(75kmを基準(1)とする)
             lambda = 10 ** (-1.288d-2 * z + 1.288d-2 * 75d3 / 184)
 
-            ! 指数分布の累積分布関数(高度300kmからz=hまで落ちてくる時に衝突が起きる確率)
             collisionProbabilityByHeight = 1 - e ** (-lambda * dt)
 
         end function
 
 
         !!!*
-        ! ピッチ角を与え、初期の粒子を得る
+        ! generate a initial particle by pitch angle
         ! @function createInitialParticle
-        ! @param {double} angle ピッチ角[°]
-        ! @param {logical} ignoreMF ミラー力を無視するかどうか
-        ! @return {Particle} 粒子
+        ! @param {double} angle pitch angle[°]
+        ! @param {logical} ignoreMF whether Mirror Force is ignored
+        ! @return {Particle} particle
         !!!
         function createInitialParticle(angle, ignoreMF) result(pt)
             type(Particle) pt
@@ -233,10 +232,10 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 粒子のピッチ角を求める
+        ! get pitch angle of a particle
         ! @function pitchAngle
         ! @param {Particle} pt
-        ! @return {double} ピッチ角 [°]
+        ! @return {double} pitchAngle [°]
         !!!
         function pitchAngle(pt)
             type(Particle) pt
@@ -250,11 +249,11 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! ある座標におけるdipole磁場を、divB = 0 となるように補正したもの
+        ! get dipole magnetic field (divB = 0) by position of a particle
         ! @function B
-        ! @param {double(3)} r 粒子の位置
-        ! @param {logical} ignoreMF ミラー力を無視するかどうか
-        ! @return {double(3)} 磁場
+        ! @param {double(3)} r position of a particle
+        ! @param {logical} ignoreMF whether Mirror Force is ignored
+        ! @return {double(3)} magnitude of magnetic field
         !!!
         function B(r, ignoreMF)
 
@@ -262,8 +261,8 @@ module CyclotronWithRungeKutta
             logical ignoreMF
 
             z = r(3)
-            r0 = 3.46d4! 地球表面の座標
-            B0 = 1d0 ! 地球表面の磁場
+            r0 = 3.46d4! position at surface of Earth
+            B0 = 1d0 ! magnitude of magnetic field at surface of Earth
             B(3) = - B0 * (1 + z / r0)**(-3)
 
             if (ignoreMF) then
@@ -284,10 +283,10 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! ある座標における電場を取得
+        ! get electric field at certian position
         ! @function El
-        ! @param {double(3)} r 粒子の位置
-        ! @return {double(3)} 電場の大きさ
+        ! @param {double(3)} r position of a particle
+        ! @return {double(3)} magnitude of electric field
         !!!
         function El(r)
 
@@ -302,11 +301,11 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 加速度
+        ! get acceleration
         ! @function acceleration
-        ! @param {Particle} pt 粒子
-        ! @param {double} time 時間
-        ! @return {double(3)} 加速度
+        ! @param {Particle} pt particle
+        ! @param {double} time time
+        ! @return {double(3)} acceleration
         !!!
         function acceleration(pt, time)
 
@@ -320,10 +319,10 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 磁場の大きさ、粒子の質量、電荷からサイクロトロン周期を求める
+        ! get cyclotron period with magnitude of magnetic field, mass and charge of a particle
         ! @function period
-        ! @param {Particle} pt 粒子
-        ! @return {double} サイクロトロン周期 [s]
+        ! @param {Particle} pt particle
+        ! @return {double} cyclotron period
         !!!
         function cyclotronPeriod(pt)
             type(Particle) pt
@@ -335,7 +334,7 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 与えられた3次元ベクトルの長さを取得
+        ! get length of three-dimensional vector
         ! @function vlen
         ! @param {double(3)} vec
         ! @return {double} length
@@ -347,11 +346,11 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 外積
+        ! cross product
         ! @function cross
         ! @param {double(3)} x
         ! @param {double(3)} y
-        ! @return {double(3)} 結果
+        ! @return {double(3)} result
         !!!
         function cross(x, y)
             double precision cross(3), x(3), y(3)
@@ -361,7 +360,11 @@ module CyclotronWithRungeKutta
             cross(3) = x(1) * y(2) - x(2) * y(1)
         end function
 
-        ! 配列の値の総和 を、 denomiで割った値を返す
+
+        !!!*
+        ! get value divided by sum of value of array in denomi
+        ! @function arrMean
+        !!!
         function arrMean(arr, length, denomi)
 
             integer length, denomi
@@ -389,22 +392,21 @@ module CyclotronWithRungeKutta
 
 
         !!!*
-        ! 粒子の速度に対してルンゲクッタ法を適用する
-        ! 粒子の加速度の計算に粒子の位置が必要なため粒子の構造体を渡す設計にしている
+        ! get particle velocity with Runge-Kutta method
         !
         ! @function rungekuttaParticle
-        ! @param {Particle} pt 粒子
-        ! @param {double} time 時間
-        ! @param {function} accel 加速度の式 (一次導関数微分方程式の右辺)
-        ! @return {double(3)} 速度の変分
+        ! @param {Particle} pt particle
+        ! @param {double} time time
+        ! @param {function} accel acceleration (right-hand side of the first derivative differential equation)
+        ! @return {double(3)} variation of speed
         !!!
         function rungekuttaParticle(pt, time, accel)
             type(Particle) pt, p1, p2, p3, p4
             double precision time
             double precision rungekuttaParticle(3), k1(3), k2(3), k3(3), k4(3)
-            double precision d1(3), d2(3), d3(3), d4(3) ! d1〜d3 微小時間で移動した距離
+            double precision d1(3), d2(3), d3(3), d4(3) ! d1〜d3 distance traveled by minor time
 
-            ! 一次導関数微分方程式の右辺
+            ! The right-hand side of the first derivative differential equation
             interface
                 function accel(p, t)
                     import :: Particle
@@ -415,18 +417,18 @@ module CyclotronWithRungeKutta
             end interface
 
             k1 = accel(pt, time)
-            d1 = (pt%v + pt%v + k1 * h / 2) * h / 2 / 2 ! 台形
+            d1 = (pt%v + pt%v + k1 * h / 2) * h / 2 / 2 ! area of trapezoid
             p1 = Particle(pt%r + d1, pt%v + k1 * h / 2, pt%ignoreMF)
 
             k2 = accel(p1, time + h / 2)
-            d2 = (p1%v + p1%v + k2 * h / 2) * h / 2 / 2 ! 台形
+            d2 = (p1%v + p1%v + k2 * h / 2) * h / 2 / 2
             p2 = Particle(p1%r + d2, p1%v + k2 * h / 2, pt%ignoreMF)
 
-            d3 = (pt%v + pt%v + k2 * h / 2) * h / 2 / 2! 台形
+            d3 = (pt%v + pt%v + k2 * h / 2) * h / 2 / 2
             p3 = Particle(pt%r + d3, pt%v + k2 * h / 2, pt%ignoreMF)
             k3 = accel(p3, time + h / 2)
 
-            d4 = (pt%v + pt%v + k3 * h) * h / 2 ! 台形
+            d4 = (pt%v + pt%v + k3 * h) * h / 2
             p4 = Particle(pt%r + d5, pt%v + k3 * h, pt%ignoreMF)
 
             k4 = accel(p4, time + h)
@@ -443,7 +445,7 @@ end module
 
 
 !!!*
-! サイクロトロン運動に関する各種シミュレーション
+! various simulations of cyclotron motion
 ! @module CyclotronSimulation
 !!!
 module CyclotronSimulation
@@ -454,28 +456,28 @@ module CyclotronSimulation
 
     integer, parameter:: TRIAL_NUM = 100
 
-    ! 100回のシミュレーション結果
+    ! 100 times of simulation results
     type MultiSimulationScope
 
-        ! 最初のピッチ角
+        ! pitch angle at initial position
         double precision initialPA
 
-        ! 終了するまでのイテレーション回数
+        ! number of iterations until the end
         integer, dimension(TRIAL_NUM):: iterationsArr = 0d0
 
-        ! 衝突した回数
+        ! number of collision
         integer:: collidedNum = 0
 
-        ! 衝突した位置(z)の配列
+        ! array of collision position
         double precision, dimension(TRIAL_NUM):: collidedZArr = 0d0
 
-        ! 衝突したピッチ角の配列
+        ! array of pitch angle when collision occurred
         double precision, dimension(TRIAL_NUM):: collidedPAArr = 0d0
 
-        ! ミラーポイントに達した回数
+        ! number of times paritcle reaches mirror point
         integer:: boundedNum = 0
 
-        ! ミラーポイント(z)の配列
+        ! array of mirror point
         double precision, dimension(TRIAL_NUM):: mirrorZArr = 0d0
 
     end type MultiSimulationScope
@@ -484,11 +486,12 @@ module CyclotronSimulation
     contains
 
         !!!*
-        ! ピッチ角を0°から90°まで1度ずつ増やしながら、各100回のシミュレーション結果を表示
-        ! @param {logical} ignoreMF ミラー力を無視するか
+        ! display result of 100 times simulation increasing pitch angle by 1°
+        ! @param {logical} ignoreMF whether Mirror Force is ignored
         !
         ! @result
-        ! {ピッチ角}\t{ミラーポイントに達した数}\t{衝突した数}\t{平均ミラーポイント[km]}\t{平均衝突点{km}}\t{衝突時のピッチ角平均[°]}
+        ! {pitch angle}\t{nuber of times particle reachegs mirror point}\t{number of collision}\t{mean of mirror point [km]}\t{mean
+        ! of collision height [km]}\t{mean of pitch angle when collision occurred[°]}
         !!!
         subroutine everyAngle(ignoreMF)
 
@@ -529,28 +532,21 @@ module CyclotronSimulation
 
 
         !!!*
-        ! ピッチ角分布を与え、ランダムなピッチ角から衝突した位置
-        ! @param {Integer} iterations 何回実行するか
-        ! @param {logical} ignoreMF ミラー力を無視するか
-        ! @param {logical} useNorm ピッチ角分布として正規分布を使うかどうか
-        ! @param {double} mean ピッチ角分布として正規分布を使った場合、その平均
-        ! @param {double} sd   ピッチ角分布として正規分布を使った場合、その標準偏差
-        ! @result {ピッチ角}\t{衝突位置[km]}
+        ! get collision position by random pitch angle obtained from certian distribution
+        ! @param {Integer} iterations number of iterations
+        ! @param {logical} ignoreMF whether Mirror Force is ignored
+        ! @result {pitch angle}\t{collision altitude[km]}
         !!!
-        subroutine collidedHeights(iterations, ignoreMF, useNorm, mean, sd)
+        subroutine collidedHeights(iterations, ignoreMF)
 
             integer i, iterations
-            logical ignoreMF, useNorm
-            double precision angle, mean, sd
+            logical ignoreMF
+            double precision angle
             type(SimulationScope) sim
 
             do i = 1, iterations
 
-                if (useNorm) then
-                    angle = normPA(mean, sd)
-                else
-                    angle = uniformPA()
-                end if
+                angle = uniformPA(0, 90)
 
                 sim = run(angle, ignoreMF)
 
@@ -564,71 +560,30 @@ module CyclotronSimulation
         end subroutine
 
 
-        ! 正規分布なピッチ角を表示 (90°以上は出ない前提で)
-        subroutine normalDistributionOfPA(mean, sd, iterations)
-            double precision mean, sd
-            integer i, iterations
-
-            do i = 1, iterations
-                write(*, *) normPA(mean, sd)
-            end do
-        end subroutine
-
         !!!*
-        ! 一様分布[0, 90)からランダムにピッチ角を取得
+        ! get pitch angle from normal distribution [minPA, maxPA) by random
         !!!
-        function uniformPA() result(angle)
+        function uniformPA(minPA, maxPA) result(angle)
+            integer minPA, maxPA
             double precision angle
             call random_number(angle)
-            angle = angle * 90
+            angle = minPA + angle * (maxPA - minPA)
         end function
 
-
-        !!!
-        ! ボックスミュラー法により2つの一様分布に従う確率変数から標準正規分布に従う確率変数を生成
-        !!!
-        function boxMuller()
-            double precision urand1, urand2, boxMuller,pi
-            pi = 3.14159265358979323d0
-            call random_number(urand1)
-            call random_number(urand2)
-            boxMuller = sqrt(-2*log(urand1)) * cos(2*pi*urand2)
-        end function
-
-
-        !!!*
-        ! 正規分布からランダムにピッチ角を取得
-        !!!
-        function normPA(mean, sd) result(angle)
-            double precision angle, mean, sd
-
-            angle = boxMuller() * sd + mean
-
-            do while (angle >= 90 .OR. angle <= 0)
-                angle = boxMuller() * sd + mean
-            end do
-
-        end function
 end module
 
 
-!!!*
-! @arg --ignoreMF ミラー力を考慮しない場合のオプション
-! @arg --useNorm  Pitch Angle分布として正規分布を使う場合のオプション
 program main
 
     use CyclotronSimulation
 
     implicit none
     integer :: iterations = 1000
-    logical :: useNorm  = .false.
     logical :: ignoreMF = .false.
 
     integer :: k, argc
     character :: argv*10
     character(10) meanStr, sdStr
-    double precision :: mean = 70d0
-    double precision :: sd = 2d0
 
     argc = iargc()
 
@@ -637,25 +592,12 @@ program main
 
         if (argv == '--ignoreMF') then
             ignoreMF = .true.
-
-        else if (argv == '--useNorm') then
-            useNorm = .true.
-
-        else if (argv == '--mean') then
-            call getarg(k + 1, meanStr)
-            read(meanStr, *) mean
-
-        else if (argv == '--sd') then
-            call getarg(k + 1, sdStr)
-            read(sdStr, *) sd
-
         end if
     end do
 
-    write (*, *) '# ignoreMF:', ignoreMF, 'useNorm:', useNorm, 'mean:', mean, 'sd:', sd
-    write (*, *) '# mean and sd affect only when useNorm == T'
+    write (*, *) '# ignoreMF:', ignoreMF
 
-    call collidedHeights(iterations, ignoreMF, useNorm, mean, sd)
+    call collidedHeights(iterations, ignoreMF)
 
 
 end program
