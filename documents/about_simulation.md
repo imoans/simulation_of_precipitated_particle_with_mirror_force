@@ -1,79 +1,80 @@
-# シミュレーションコードの詳細
-## 運動方程式
-今回本コードで用いた運動方程式は以下。
+# about simulation code
+## equation of motion
+Equation of motion using in this simulation is as below.
 
 ![equation_of_motion](../images/equation_of_motion.png)
 
-## パラメータ
-与えるべきパラメータと、このコードで与えた値は以下。
+## parameters
+Parameters using in this simulation is as below
 
-|パラメータ名|値|
+|parameter|value|
 |:--:|:--:|
-|初期高度 [km]|300|
-|磁気緯度 [°]|66|
-|電場|0|
-|磁場|以下に詳細|
-|エネルギー [keV]|1|
-|mirror force|有／無|
-|ピッチ角 [°]|0-90|
-|時間の幅 [s]|3.07 ×  10^(-8)|
-|time step [回]|2.0 ×  10^7|
-|衝突確率|以下に詳細|
+|initial altitude [km]|300|
+|magnetic latitude [°]|66|
+|electric field|0|
+|magnetic field|detail is as below|
+|energy of particle(electron) [keV]|1|
+|mirror force|with／ignore|
+|initial pitch angle [°]|0-90|
+|width of time [s]|3.07 ×  10^(-8)|
+|time step [times]|2.0 ×  10^7|
+|collision probability|detail is as below|
 
-### 磁場の決め方
-磁場は、双極子磁場を想定して、近似しています。
+### about magnetic field
+Magnetic field is approximated with dipole field.
 
 ![magnetic_field](../images/magnetic_field.png)
 
-![r_0](../images/surface_of_earth.png): 地球半径
+![r_0](../images/surface_of_earth.png): Earth radius
 
-![B_0](../images/magnetic_field_of_r0.png): 地球表面での磁場の大きさ
-
-
-
-#### [参考] _BasicSpacePlasmaPhysics,p32_
-双極子磁場の大きさ
-
-![equation_of_dipole_magnetic_field](../images/dipole_magnetic_field.png)
+![B_0](../images/magnetic_field_of_r0.png): magnitude of magnetic field at Earth's surface
 
 
-#### [参考] _Katoh and Omura, JGR 2006_
-さらに、磁場の発散が0になるようにしています。
+
+##### [reference] _BasicSpacePlasmaPhysics, p32, eq3.1_
+equation of dipole field is as below.
+
+![equation_of_dipole_field](../images/dipole_magnetic_field.png)
+
+
+##### [reference] _Katoh and Omura, JGR 2006_
+In this simulation, divergence of magnetic field is set to 0
 
 ![divergenceB](../images/divergence_of_magnetic_field.png)
 
 
-### 衝突確率の決め方
-衝突確率は、_BasicSpacePlasmaPhysics,p.66_の衝突周波数のグラフを参考に作られています。
+### about collision probability
+Collicion probability is refered to graph of collision frequency in _BasicSpacePlasmaPhysics,p.66_
 
-まず75kmを基準として、1サイクロトロン周期での衝突回数の平均(ポアソン分布)を近似すると、
+mean of number of collision during cyclotron period, λ is led as below approximated with the graph.
+(75km is standard)
 
 ![mean_of_collision](../images/mean_of_collision.png)
 
- この衝突が指数分布にしたがって起きるとすると、
-シミュレーション1stepあたりの衝突確率Pは、
+
+When collision occurs according to exponential distribution,
+collision probability, P per 1 step in this simulation is lead as below.
 
 ![collision_probability](../images/collision_probability.png)
 
-となります。
 
 
-### 規格化について
-このシミュレーションでは、規格化をしています。
+### about normalization
+In this simulation, parameters are normalized.
 
-それぞれのパラメータは以下の単位になっています。
+Unit of parameters is as below
 
-| パラメータ名 | 単位 |
+| parameter | unit |
 |:----------:|:---:|
-|速度|c^(-1)|
-|時間|Ω^(-1)|
-|距離|cΩ^(-1)|
-|質量|m\_e^(-1)|
-|電荷|q\_e^(-1)|
+|velocity|c^(-1)|
+|time|Ω^(-1)|
+|distance|cΩ^(-1)|
+|mass|m\_e^(-1)|
+|charge|q\_e^(-1)|
 
-ここで、c:光速、
-Ω:サイクロトロン周期、
-m\_e:電子の質量、
-q\_e:電子の電荷です。
+c: speed of light,
+Ω: cyclotron period,
+m\_e: mass of electron,
+q\_e: charge of electron
 
-また、このシミュレーションでΩは地表での値を入れています。
+In this simulation, Ω is value of it at Earth's surface.
