@@ -1,127 +1,147 @@
-## abstract
-脈動オーロラは、磁気圏においてプラズマ波動によりピッチ角散乱を受けた電子が電離圏まで降下することで発光する。
+## Abstract
 
-脈動オーロラが発光している時、そのもととなる電子は、脈動オーロラの未発光時よりも電離圏のより低高度まで降下していることが知られている。
+Pulsating auroras(PsA) emits light by electrons precipitating to Earth's ionosphere.
 
-その原因は、高いエネルギーを持つ電子が降込む時には、より低高度まで到達する[Rees, 1963; Trunen et al., 2009]ことで説明されている[Hosokawa and Ogawa, 2015]。
+The electrons can precipitate to Earth's ionosphere by receiving pitch angle scattering by a plasma wave near equatorial plane of Earth's magnetosphere.
 
+In addition, PsA is the aurora with optical pulsations.
 
-一方で、電離圏に降込む電子は、背景磁場強度の空間変化によるmirror forceを受けるため、高度に応じてピッチ角が変化する。
+The precipitated electrons are known to reach lower altitude as PsA more strongly emits light. _[Hosokawa and Ogawa, 2015]_
 
-ロスコーン付近の電子は特にこの影響が大きくなると考えられる。従来の研究では、mirror forceが降込み電子の到達高度に及ぼす影響については、十分に考慮されていなかった。
+It is because that the precipitated electrons with high enegy can reach lower altitude._[Rees, 1963; Trunen et al., 2009]_
 
-よって本研究の目的は、ミラー力を考慮した粒子シュミレーションのコードを作成し、ピッチ角の変化が電子の降下の高度にどれくらい影響するのかを計算することになる。
+On the other hand, the precipitated electrons recieve mirror force by space change of the background magnetic field strength, and its pitch angle changes according to the altitude.
 
-計算結果は以下の通り。
+the electron with the pitch angle around loss cone angle might be strongly affected by that.
 
-まずmirror forceを考慮する時としない時で初期ピッチ角ごとの衝突高度を比較すると、初期ピッチ角0-60°の電子ではmirror forceの有無により衝突高度に差はなかった。
+In the past study, the effect that mirror force gives to arrival attitude of the precipitated electrons.
 
-しかし、初期ピッチ角が70°以上になると、mirror forceを考慮しない時はほとんど衝突高度が変わらないのに対し、mirror forceを考慮するときは衝突高度が10-20kmほど高くなるという結果が得られた。
+Thus, the purpose of this study is to calculate that how long does the change of the pitch angle affects the arrival attitude of the precipitated electrons.
 
-次に、mirror forceを考慮した上で、初期ピッチ角分布を変化させて衝突高度を比較する。
+Therefore we made the simulation code of the single particle and excuted it.
 
-今回比較した初期ピッチ角分布は、[0, 90)の一様分布と[70, 90)の一様分布である。
+First, we calculated the collision altitude every initial pitch angle with mirror force or not.
 
-結果は、[70, 90)の一様分布の方が20kmほど衝突高度が高くなることがわかった。
+By the electrons with initial pitch angle of 0-60 degree the collision altitude doesn't change with mirror force or not.
 
-よって、本研究ではmirror forceを考慮した電離圏高度での粒子シミュレーションを行うことで、電子の本来の衝突高度を明らかにし、さらに初期ピッチ角分布の変化によっても衝突高度が変化することも明らかにした。
+Then as initial pitch angle is more than 70 degree we obtained the result that the collision altitude with mirror force is about 10-20km higher than it without mirror force.
 
+Next, we calculated the collision altitude with mirror force changing initial pitch angle distribution
 
+We calculated about initial pitch angle distribution of uniform distribution, [0, 90) and [70, 90).
 
-## introduction
-#### 磁気圏でのプラズマ粒子の運動
-地球の磁気圏では、プラズマ粒子は磁力線に沿ってサイクロトロン運動しながら、磁場の空間変化によって生じる力(mirror force)を受けて、mirror pointで折り返すミラー運動をしている。
+We obtained the result that the collirion altitude with uniform distribution [70, 90) is about 20km higher than it with uniform distribution [0, 90).
 
-このとき、粒子の速度ベクトルと磁力線のなす角をピッチ角という。
+From the above we obtained the precipitated electron's collision altitude in detail by excuting the simulation of the single particle with mirror force.
 
-また、ミラー運動中で第一不変量が保存されているので、プラズマ粒子の速度ベクトルの大きさは変わらず、ピッチ角の大きさのみ変わっていく。
-
-電離圏高度まで達するときの赤道平面でのピッチ角をロスコーン角と呼ぶ。
-
-ロスコーンは、このロスコーン角から作られる三角錐で、この領域に入るピッチ角をもつプラズマ粒子は電離圏高度まで達することができる。
+And we obtained the change of the collision altitude by the change of initial pitch angle.
 
 
 
-#### 脈動オーロラ
-ディフューズなオーロラで、数秒から数十秒の周期で点滅している。
+## Introduction
+#### About motion of plasma particles at Earth's magnetosphere
 
-脈動オーロラは、数keVから数十keVの電子が磁気圏で波動粒子相互作用をうけて、電離圏まで到達することにより発光する。
+In Earth's magnetosphere, the plasma particles do cyclotron motion along a magnetic field line and do mirror motion by recieving mirror force resulting the space change of the magnetic field.
 
-また、脈動オーロラの点滅の明滅(ON,OFF)時では、それぞれ電子の存在する高度分布に約10から20kmの差があることが知られている。_[Hosokawa and Ogawa, 2015]_
+Then the angle made from a speed vector of the particle and a magnetic field line is called a pitch angle.
 
+As the first adiabatic invariant is stored for the mirror motion, the speed vector of the plasma particle doesn't change and the pitch angle only changes.
 
+The pitch angle of the particle reaching Earth's ionosphere is calld a loss cone angle.
 
-## 研究の目的
-従来の研究では、ミラー力が降込み電子の到達高度に及ぼす影響について十分に考慮されていなかった。本研究では、ミラー力を考慮した粒子シュミレーションを行うことで、ピッチ角の変化が電子の降下の高度にどれくらい影響するのかを計算する。
+Also loss cone is the tetrahedron that is made from the loss cone angle.
 
-
-
-## シミュレーションコードの概要
-電離圏での単一電子の運動のシミュレーション。
-
-電子は一定の確率で中性大気中の原子分子と衝突(計算終了)。
-
-まずはmirror forceの有無よる衝突高度の変化を調べ、
-
-次にピッチ角分布の変化による衝突高度の変化をみる。
-
-詳細は、[シミュレーションコードの詳細](./about_simulation.md)をご覧ください。
+And the plasma particle with the pitch angle included in the loss cone can reach Earth's ionosphere.
 
 
 
+#### Pulsating aurora(PsA)
+Pulsating auroras(PsAs) are the diffuse aurora and pulse optically with a period of a few to few tens of seconds.
 
-## 結果
-####1. mirror force有/無での衝突高度
+PsA emits lights by the precipitated electrons with a few to few tens of energies that recieved wave particle interaction in the magnetosphere and reached the ionosphere.
+
+Also there is known to be a difference from about 10-20km in the altitude distribution that electrons exist by the optically pulse of the PsA. _[Hosokawa and Ogawa, 2015]_
+
+
+
+## Purpose of this sutdy
+In the past studies, the influence that mirror force gives to preticipated particles isn't considered enough.
+
+Then in this study, executing the simulation of a preticipated particle with mirror force, we calcurate how long the change of the pitch angle influences the altitude of preticipated particles.
+
+
+
+## Summary of this simulation code
+This is simulation of single particle at Earth's ionosphere.
+
+particles collide with atmospheric atom molecules with constant probability.
+(Once if particles collide, calculation is finished.)
+
+At first, we calcurated the change of collision altitude with or ignoring mirror force.
+
+Next we calurated the change of collision altitude by the change of the pitch angle distribution.
+
+Please see [About this simulation](./about_simulation.md) for the details.
+
+
+
+
+## Result
+####1. Collision altitude with or without mirror force
 ![result_mirror_force](../images/mirror_force.png)
 
-上のグラフは、高度300kmでのピッチ角(初期ピッチ角)を0-90°とし、それぞれ1度ごとに100回ずつシュミレーションを行って衝突高度の平均をプロットしたものである。
+We executed simulation to calcurate mean of collision altitude by 100 times every each 1 degree assumede initial pitch angle of 0-90 degrees.
 
-赤い線は、mirror forceを考慮した時のプロットで、青い線は、mirror forceを考慮しない時のプロットである。また、灰色の線は、mirror pointのプロットである。
+Then the upper graph is the result of the simulation.
 
-このグラフより、ピッチ角0-60°の電子は、mirror forceの有無にかかわらず衝突高度が120km付近であることが分かる。
+In the graph, the red line is a plot with mirror force, the blue line is a plot ignoring mirror force, and the gray line is aplot of mirror point
 
-また、mirror forceを考慮しない時は初期ピッチ角により衝突高度は変化しないことも分かる。
+From this graph, as initial pitch angle is 0-60°, collision altitude is about 120km regardless of whether mirror force.
 
-ここで、青線の約65°以上のデータがプロットされていないのは、衝突高度が理論上でのmirror pointよりも低くなったからである。
+And collision altitude without mirror force doesn't change by initial pitch angle.
 
-さらに、mirror forceを考慮すると、70°付近で衝突高度が高くなることがわかった。また、それはmirror pointに一致していることもグラフから読み取れる。
+Here the reason why data more than about 65 degrees aren't plotted in the blue line is that collision altitude lowered than mirror point onthe theory.
+
+Furthermore, collision altitude rose by around 70 degrees with mirror force and it agrees with mirror point.
+
+from this result, collision altitude changes by initial pitch angle regardless of whether mirror force.
+
+Then we calculated change of collision altitude varing initial pitch angle distribution with mirror force.
 
 
-この結果から、mirror forceの有無により、初期ピッチ角ごとに衝突高度が変化することがわかった。
 
-よって、mirror forceを考慮した上で、初期ピッチ角分布を変化させ、衝突高度がどのように変化するのかを調べる。
-
-
-####2. 異なるピッチ角分布での衝突高度の変化
+####2. Change of collision altitude by various pitch angle distribution
 
 ![result_pitch_angle_distribution](../images/pitch_angle_distribution.png)
 
-上のグラフは、初期ピッチ角分布を[0,90)の一様分布と[70, 90)の一様分布で、それぞれ電子を1000個ずつ生成し、衝突高度をプロットしたものである。
+The upper graph is a plot of collision altitude generated 1,000 electrons by initial pitch angle distribution as normal distribution of [0, 90) and [70, 90)
 
-また、以下の表はそれぞれのピッチ角分布での衝突高度の平均と、標準偏差を示したものである。
+In addition, the following lists showed mean and standard deviation of collision altitude by each pitch angle distribution.
 
 |-|[0, 90)|[70, 90)|
 |:--:|:--:|:--:|
-|平均 [km]|132.4|112|
-|標準偏差|10.29|8.71|
+|mean [km]|132.4|112|
+|sd|10.29|8.71|
 
-これらより、初期ピッチ角分布が[0, 90)の一様分布と[70, 90)の一様分布では、[70,90)の分布の方が衝突高度の平均が約20kmほど高くなることがわかった。
-
-
-
-## まとめ
-地球の電離圏において、中性大気中の分子と衝突する電子の運動のシミュレーションコードを作成した。
-
-そのシミュレーションを用いて、mirror forceを考慮する時としない時で、電子の衝突高度に変化があることを明らかにした。
-
-さらに、ピッチ角分布の変化のよる衝突高度の変化も明らかにした。
+We found that when initial pitch angle distribution is uniform distriburion [0, 90) or [70, 90), collision altitude of distribution [70, 90) is about 20km higher than it of [0, 90).
 
 
 
-## 考察
-#### mirror forceの有無による衝突高度の変化について
-mirror forceを考慮しないときは、ピッチ角が変化しないので、電子の磁力線方向の速度の大きさは変化しない。
+## Summary
+We made simulation code of motion that electron collides with atomic molcule at neutral atmmosphere in Earth's ionosphere
 
-mirror forceを考慮すると、mirror pointに近づくにつれて、ピッチ角が90°に近づいていき、電子の磁力線方向の速度の大きさはだんだんと小さくなっていく。
+Using the simulation, we revealed that collision altitude of electron with mirror force gets lower than it without mirror force.
 
-よって、mirror forceを考慮すると電子はmirror point付近にとどまりやすくなり、考慮しない時よりも、mirror point付近で衝突しやすくなるのではないかと考える。
+In addition, we revealed that pitch angle distribution changes collision altitude of electron too.
+
+
+
+## Consideration
+#### about change of collision altitude whether mirror force is ignored
+Ignoring mirror force, magnetic force direction velocity doesn't change as pitch angle doesn't change.
+
+With mirror force, as particle reaches mirror point pitch angle gets closer to 90 degree and magnitude of magnetic force direction velocity gets smaller.
+
+Then particles come to stay near mirror point.
+
+Based on these factor, I supposed more collisions happen with mirror force than ignoring it.
