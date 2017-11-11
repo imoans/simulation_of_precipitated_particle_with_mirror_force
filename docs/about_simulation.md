@@ -2,7 +2,7 @@
 ## equation of motion
 Equation of motion in this simulation is as below.
 
-![equation_of_motion](../images/equation_of_motion.png)
+![equation_of_motion](./images/equation_of_motion.png)
 
 ## parameters
 Parameters in this simulation is as below
@@ -22,24 +22,24 @@ Parameters in this simulation is as below
 
 ### magnetic field
 
-![magnetic_field](../images/magnetic_field.png)
+![magnetic_field](./images/magnetic_field.png)
 
-![r_0](../images/surface_of_earth.png): Earth radius
+![r_0](./images/surface_of_earth.png): Earth radius
 
-![B_0](../images/magnetic_field_of_r0.png): magnitude of magnetic field at Earth's surface
+![B_0](./images/magnetic_field_of_r0.png): magnitude of magnetic field at Earth's surface
 
 
 
 ##### [reference] _BasicSpacePlasmaPhysics, p32, eq3.1_
 equation of dipole field is
 
-![equation_of_dipole_field](../images/dipole_magnetic_field.png)
+![equation_of_dipole_field](./images/dipole_magnetic_field.png)
 
 
 ##### [reference] _Katoh and Omura, JGR 2006_
 In this simulation, divergence of magnetic field 0
 
-![divergenceB](../images/divergence_of_magnetic_field.png)
+![divergenceB](./images/divergence_of_magnetic_field.png)
 
 
 ### about collision probability
@@ -47,13 +47,13 @@ Collicion probability is refered to collision frequency _BasicSpacePlasmaPhysics
 
 number of collision during cyclotron period, λ
 
-![mean_of_collision](../images/mean_of_collision.png)
+![mean_of_collision](./images/mean_of_collision.png)
 
 
 When collision occurs according to exponential distribution,
 collision probability, P per 1 step in this simulation is as
 
-![collision_probability](../images/collision_probability.png)
+![collision_probability](./images/collision_probability.png)
 
 
 

@@ -88,7 +88,7 @@ Please see [About this simulation](./about_simulation.md) for the details.
 
 ## Result
 ####1. Collision altitude with or without mirror force
-![result_mirror_force](../images/mirror_force.png)
+![result_mirror_force](./images/mirror_force.png)
 
 We executed simulation to calcurate mean of collision altitude by 100 times every each 1 degree assumede initial pitch angle of 0-90 degrees.
 
@@ -112,7 +112,7 @@ Then we calculated change of collision altitude varing initial pitch angle distr
 
 ####2. Change of collision altitude by various pitch angle distribution
 
-![result_pitch_angle_distribution](../images/pitch_angle_distribution.png)
+![result_pitch_angle_distribution](./images/pitch_angle_distribution.png)
 
 The upper graph is a plot of collision altitude generated 1,000 electrons by initial pitch angle distribution as normal distribution of [0, 90) and [70, 90)
 
